@@ -1,4 +1,4 @@
-use crate::index2d::Index2D;
+use crate::Index2D::Index2D;
 
 pub trait Container2D {
     type Output;
@@ -50,7 +50,8 @@ impl<'a, D: Container2D, const M: u32, const N: u32> Container2D for View2D<'a, 
     const WIDTH: u32 = N;
 
     fn get<I: Index2D>(&self, i: I) -> Option<&Self::Output> {
-        self.data.get(i.to_2d_offset(Self::WIDTH, Self::HEIGHT, self.r, self.c)?)
+        self.data
+            .get(i.to_2d_offset(Self::WIDTH, Self::HEIGHT, self.r, self.c)?)
     }
 }
 
@@ -60,7 +61,8 @@ impl<'a, D: Container2DMut, const M: u32, const N: u32> Container2D for Slice2D<
     const WIDTH: u32 = N;
 
     fn get<I: Index2D>(&self, i: I) -> Option<&Self::Output> {
-        self.data.get(i.to_2d_offset(Self::WIDTH, Self::HEIGHT, self.r, self.c)?)
+        self.data
+            .get(i.to_2d_offset(Self::WIDTH, Self::HEIGHT, self.r, self.c)?)
     }
 }
 
@@ -72,11 +74,10 @@ pub struct Slice2D<'a, D: Container2DMut, const M: u32, const N: u32> {
     data: &'a mut D,
 }
 
-impl<'a, D: Container2DMut, const M: u32, const N: u32> Container2DMut
-for Slice2D<'a, D, M, N>
-{
+impl<'a, D: Container2DMut, const M: u32, const N: u32> Container2DMut for Slice2D<'a, D, M, N> {
     fn get_mut<I: Index2D>(&mut self, i: I) -> Option<&mut Self::Output> {
-        self.data.get_mut(i.to_2d_offset(Self::WIDTH, Self::HEIGHT, self.r, self.c)?)
+        self.data
+            .get_mut(i.to_2d_offset(Self::WIDTH, Self::HEIGHT, self.r, self.c)?)
     }
 }
 
