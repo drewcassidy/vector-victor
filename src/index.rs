@@ -1,4 +1,6 @@
-pub trait Index2D: Copy {
+use std::fmt::Debug;
+
+pub trait Index2D: Copy + Debug {
     fn to_1d(self, height: usize, width: usize) -> Option<usize> {
         let (r, c) = self.to_2d(height, width)?;
         Some(r * width + c)

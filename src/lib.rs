@@ -1,3 +1,7 @@
+extern crate core;
+
 pub mod index;
-mod matrix;
 mod macros;
+mod matrix;
+
+pub use matrix::{Matrix, Scalar, Vector};
