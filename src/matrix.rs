@@ -1,8 +1,11 @@
 use crate::impl_matrix_op;
 use crate::index::Index2D;
+use crate::matrix_traits::Mult;
+use num_traits::{Num, One, Zero};
 use std::fmt::Debug;
 use std::iter::{zip, Flatten, Product, Sum};
-use std::ops::{AddAssign, Deref, DerefMut, Index, IndexMut, MulAssign};
+use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg, Sub};
+use std::process::Output;
 
 /// A Scalar that a [Matrix] can be made up of.
 ///
@@ -25,15 +28,29 @@ where
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Matrix<T, const M: usize, const N: usize>
 where
-    T: Scalar,
+    T: Copy,
 {
-    data: [[T; N]; M],
+    data: [[T; N]; M], // Column-Major order
 }
 
 /// An alias for a [Matrix] with a single column
 pub type Vector<T, const N: usize> = Matrix<T, N, 1>;
 
-impl<T: Scalar, const M: usize, const N: usize> Matrix<T, M, N> {
+pub trait Dot<R> {
+    type Output;
+    #[must_use]
+    fn dot(&self, rhs: &R) -> Output;
+}
+
+pub trait Cross<R> {
+    #[must_use]
+    fn cross_r(&self, rhs: &R) -> Self;
+    #[must_use]
+    fn cross_l(&self, rhs: &R) -> Self;
+}
+
+// Simple access functions that only require T be copyable
+impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
     /// Generate a new matrix from a 2D Array
     ///
     /// # Arguments
@@ -95,8 +112,8 @@ impl<T: Scalar, const M: usize, const N: usize> Matrix<T, M, N> {
     #[must_use]
     pub fn from_rows<I>(iter: I) -> Self
     where
-        Self: Default,
         I: IntoIterator<Item = Vector<T, N>>,
+        Self: Default,
     {
         let mut result = Self::default();
         for (m, row) in iter.into_iter().enumerate().take(M) {
@@ -124,8 +141,8 @@ impl<T: Scalar, const M: usize, const N: usize> Matrix<T, M, N> {
     #[must_use]
     pub fn from_cols<I>(iter: I) -> Self
     where
-        Self: Default,
         I: IntoIterator<Item = Vector<T, M>>,
+        Self: Default,
     {
         let mut result = Self::default();
         for (n, col) in iter.into_iter().enumerate().take(N) {
@@ -143,17 +160,17 @@ impl<T: Scalar, const M: usize, const N: usize> Matrix<T, M, N> {
     /// assert!(vec![1,2,3,4].iter().eq(my_matrix.elements()))
     /// ```
     #[must_use]
-    pub fn elements<'a>(&'a self) -> impl Iterator<Item = &T> + 'a {
+    pub fn elements<'a>(&'a self) -> impl Iterator<Item = &'a T> + 'a {
         self.data.iter().flatten()
     }
 
     /// Returns a mutable iterator over the elements of the matrix in row-major order.
     #[must_use]
-    pub fn elements_mut<'a>(&'a mut self) -> impl Iterator<Item = &mut T> + 'a {
+    pub fn elements_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut T> + 'a {
         self.data.iter_mut().flatten()
     }
 
-    /// Returns a reference to the element at that position in the matrix or `None` if out of bounds.
+    /// Returns a reference to the element at that position in the matrix, or `None` if out of bounds.
     ///
     /// # Examples
     ///
@@ -163,6 +180,11 @@ impl<T: Scalar, const M: usize, const N: usize> Matrix<T, M, N> {
     ///
     /// // element at index 2 is the same as the element at (row 1, column 0).
     /// assert_eq!(my_matrix.get(2), my_matrix.get((1,0)));
+    ///
+    /// // my_matrix.get() is equivalent to my_matrix[],
+    /// // but returns an Option instead of panicking
+    /// assert_eq!(my_matrix.get(2), Some(&my_matrix[2]));
+    ///
     /// // index 4 is out of range, so get(4) returns None.
     /// assert_eq!(my_matrix.get(4), None);
     /// ```
@@ -173,6 +195,7 @@ impl<T: Scalar, const M: usize, const N: usize> Matrix<T, M, N> {
         Some(&self.data[m][n])
     }
 
+    /// Returns a mutable reference to the element at that position in the matrix, or `None` if out of bounds.
     #[inline]
     #[must_use]
     pub fn get_mut(&mut self, index: impl Index2D) -> Option<&mut T> {
@@ -180,14 +203,28 @@ impl<T: Scalar, const M: usize, const N: usize> Matrix<T, M, N> {
         Some(&mut self.data[m][n])
     }
 
+    /// Returns a row of the matrix. panics if index is out of bounds
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use vector_victor::{Matrix, Vector};
+    /// let my_matrix = Matrix::new([[1,2],[3,4]]);
+    ///
+    /// // row at index 1
+    /// assert_eq!(my_matrix.row(1), Vector::vec([3,4]));
+    /// ```
     #[inline]
     #[must_use]
-    pub fn row(&self, m: usize) -> Option<Vector<T, N>> {
-        if m < M {
-            Some(Vector::<T, N>::vec(self.data[m]))
-        } else {
-            None
-        }
+    pub fn row(&self, m: usize) -> Vector<T, N> {
+        assert!(
+            m < M,
+            "Row index {} out of bounds for {}x{} matrix",
+            m,
+            M,
+            N
+        );
+        Vector::<T, N>::vec(self.data[m])
     }
 
     #[inline]
@@ -231,17 +268,41 @@ impl<T: Scalar, const M: usize, const N: usize> Matrix<T, M, N> {
 
     #[must_use]
     pub fn rows<'a>(&'a self) -> impl Iterator<Item = Vector<T, N>> + 'a {
-        (0..M).map(|m| self.row(m).expect("invalid row reached while iterating"))
+        (0..M).map(|m| self.row(m))
     }
 
     #[must_use]
     pub fn cols<'a>(&'a self) -> impl Iterator<Item = Vector<T, M>> + 'a {
         (0..N).map(|n| self.col(n).expect("invalid column reached while iterating"))
     }
+
+    pub fn transpose(&self) -> Matrix<T, N, M>
+    where
+        Matrix<T, N, M>: Default,
+    {
+        Matrix::<T, N, M>::from_rows(self.cols())
+    }
+
+    // pub fn mmul<const P: usize, R, O>(&self, rhs: &Matrix<R, P, N>) -> Matrix<T, P, M>
+    // where
+    //     R: Num,
+    //     T: Scalar + Mul<R, Output = T>,
+    //     Vector<T, N>: Dot<Vector<R, M>, Output = T>,
+    // {
+    //     let mut result: Matrix<T, P, M> = Zero::zero();
+    //
+    //     for (m, a) in self.rows().enumerate() {
+    //         for (n, b) in rhs.cols().enumerate() {
+    //             // result[(m, n)] = a.dot(b)
+    //         }
+    //     }
+    //
+    //     return result;
+    // }
 }
 
 // 1D vector implementations
-impl<T: Scalar, const M: usize> Matrix<T, M, 1> {
+impl<T: Copy, const M: usize> Vector<T, M> {
     /// Create a vector from a 1D array.
     /// Note that vectors are always column vectors unless explicitly instantiated as row vectors
     ///
@@ -249,7 +310,7 @@ impl<T: Scalar, const M: usize> Matrix<T, M, 1> {
     ///
     /// * `data`: A 1D array of elements to copy into the new vector
     ///
-    /// returns: Matrix<T, { M }, 1>
+    /// returns: Vector<T, M>
     ///
     /// # Examples
     ///
@@ -260,9 +321,41 @@ impl<T: Scalar, const M: usize> Matrix<T, M, 1> {
     /// assert_eq!(my_vector, Matrix::new([[1],[2],[3],[4]]));
     /// ```
     pub fn vec(data: [T; M]) -> Self {
-        return Matrix::<T, M, 1> {
-            data: data.map(|e| [e; 1]),
+        return Vector::<T, M> {
+            data: data.map(|e| [e]),
         };
+    }
+}
+
+impl<T: Num + Copy, R: Num + Copy, const M: usize> Dot<Vector<R, M>> for Vector<T, M>
+where
+    for<'a> Output: Sum<&'a T>,
+    for<'b> &'b Self: Mul<&'b Vector<R, M>, Output = Self>,
+{
+    type Output = T;
+    fn dot(&self, rhs: &Matrix<R, M, 1>) -> Output {
+        (self * rhs).elements().sum::<Output>()
+    }
+}
+
+impl<T: Scalar> Vector<T, 3> {
+    pub fn cross_r<R: Scalar>(&self, rhs: Vector<R, 3>) -> Self
+    where
+        T: Mul<R, Output = T> + Sub<T, Output = T>,
+    {
+        Self::vec([
+            (self[1] * rhs[2]) - (self[2] * rhs[1]),
+            (self[2] * rhs[0]) - (self[0] * rhs[2]),
+            (self[0] * rhs[1]) - (self[1] * rhs[0]),
+        ])
+    }
+
+    pub fn cross_l<R: Scalar>(&self, rhs: Vector<R, 3>) -> Self
+    where
+        T: Mul<R, Output = T> + Sub<T, Output = T>,
+        Self: Neg<Output = Self>,
+    {
+        -self.cross_r(rhs)
     }
 }
 
@@ -270,7 +363,7 @@ impl<T: Scalar, const M: usize> Matrix<T, M, 1> {
 impl<I, T, const M: usize, const N: usize> Index<I> for Matrix<T, M, N>
 where
     I: Index2D,
-    T: Scalar,
+    T: Copy,
 {
     type Output = T;
 
@@ -295,13 +388,28 @@ where
         ))
     }
 }
-
 // Default
-impl<T: Scalar, const M: usize, const N: usize> Default for Matrix<T, M, N> {
+impl<T: Copy + Default, const M: usize, const N: usize> Default for Matrix<T, M, N> {
     fn default() -> Self {
-        Matrix {
-            data: [[T::default(); N]; M],
-        }
+        Matrix::new([[T::default(); N]; M])
+    }
+}
+
+// Zero
+impl<T: Copy + Zero, const M: usize, const N: usize> Zero for Matrix<T, M, N> {
+    fn zero() -> Self {
+        Matrix::new([[T::zero(); N]; M])
+    }
+
+    fn is_zero(&self) -> bool {
+        self.elements().all(|e| e.is_zero())
+    }
+}
+
+// One
+impl<T: Copy + One, const M: usize, const N: usize> One for Matrix<T, M, N> {
+    fn one() -> Self {
+        Matrix::new([[T::one(); N]; M])
     }
 }
 
@@ -363,9 +471,12 @@ where
     }
 }
 
-impl<T: Scalar + AddAssign, const M: usize, const N: usize> Sum for Matrix<T, M, N> {
+impl<T: Scalar + AddAssign, const M: usize, const N: usize> Sum for Matrix<T, M, N>
+where
+    Self: Zero + AddAssign,
+{
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        let mut sum = Self::default();
+        let mut sum = Self::zero();
 
         for m in iter {
             sum += m;
@@ -375,9 +486,12 @@ impl<T: Scalar + AddAssign, const M: usize, const N: usize> Sum for Matrix<T, M,
     }
 }
 
-impl<T: Scalar + MulAssign, const M: usize, const N: usize> Product for Matrix<T, M, N> {
+impl<T: Scalar + MulAssign, const M: usize, const N: usize> Product for Matrix<T, M, N>
+where
+    Self: One + MulAssign,
+{
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
-        let mut prod = Self::default();
+        let mut prod = Self::one();
 
         for m in iter {
             prod *= m;

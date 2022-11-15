@@ -102,7 +102,7 @@ macro_rules! _impl_op_m_internal {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $out:ty) => {
         impl<L, const M: usize, const N: usize> ::std::ops::$ops_trait for $lhs
         where
-            L: ::std::ops::$ops_trait<Output = L> + Scalar,
+            L: ::std::ops::$ops_trait<Output = L> + Copy,
         {
             type Output = $out;
 
@@ -125,8 +125,8 @@ macro_rules! _impl_op_mm_internal {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
         impl<L, R, const M: usize, const N: usize> ::std::ops::$ops_trait<$rhs> for $lhs
         where
-            L: ::std::ops::$ops_trait<R, Output = L> + Scalar,
-            R: Scalar,
+            L: ::std::ops::$ops_trait<R, Output = L> + Copy,
+            R: Copy,
         {
             type Output = $out;
 
@@ -149,8 +149,8 @@ macro_rules! _impl_opassign_mm_internal {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
         impl<L, R, const M: usize, const N: usize> ::std::ops::$ops_trait<$rhs> for $lhs
         where
-            L: ::std::ops::$ops_trait<R> + Scalar,
-            R: Scalar,
+            L: ::std::ops::$ops_trait<R> + Copy,
+            R: Copy,
         {
             #[inline(always)]
             fn $ops_fn(&mut self, other: $rhs) {
@@ -169,8 +169,8 @@ macro_rules! _impl_op_ms_internal {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
         impl<L, R, const M: usize, const N: usize> ::std::ops::$ops_trait<$rhs> for $lhs
         where
-            L: ::std::ops::$ops_trait<R, Output = L> + Scalar,
-            R: Scalar,
+            L: ::std::ops::$ops_trait<R, Output = L> + Copy,
+            R: Copy + Num,
         {
             type Output = $out;
 
@@ -193,8 +193,8 @@ macro_rules! _impl_opassign_ms_internal {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
         impl<L, R, const M: usize, const N: usize> ::std::ops::$ops_trait<$rhs> for $lhs
         where
-            L: ::std::ops::$ops_trait<R> + Scalar,
-            R: Scalar,
+            L: ::std::ops::$ops_trait<R> + Copy,
+            R: Copy + Num,
         {
             #[inline(always)]
             fn $ops_fn(&mut self, r: $rhs) {

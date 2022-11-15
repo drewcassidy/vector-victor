@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 generic_parameterize = "0.1.0"
+num-traits = "0.2.15"
