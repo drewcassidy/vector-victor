@@ -1,25 +1,23 @@
 use crate::impl_matrix_op;
 use crate::index::Index2D;
-use crate::matrix_traits::Mult;
 use num_traits::{Num, One, Zero};
 use std::fmt::Debug;
 use std::iter::{zip, Flatten, Product, Sum};
-use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg, Sub};
-use std::process::Output;
+use std::ops::{AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 
 /// A Scalar that a [Matrix] can be made up of.
 ///
 /// This trait has no associated functions and can be implemented on any type that is [Default] and
 /// [Copy] and has a static lifetime.
-pub trait Scalar: Default + Copy + 'static {}
-macro_rules! multi_impl { ($name:ident for $($t:ty),*) => ($( impl $name for $t {} )*) }
-multi_impl!(Scalar for i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
-impl<T> Scalar for &'static T
-where
-    T: Scalar,
-    &'static T: Default,
-{
-}
+// pub trait Scalar: Default + Copy + 'static {}
+// macro_rules! multi_impl { ($name:ident for $($t:ty),*) => ($( impl $name for $t {} )*) }
+// multi_impl!(Scalar for i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+// impl<T> Scalar for &'static T
+// where
+//     T: Scalar,
+//     &'static T: Default,
+// {
+// }
 
 /// A 2D array of values which can be operated upon.
 ///
@@ -30,7 +28,7 @@ pub struct Matrix<T, const M: usize, const N: usize>
 where
     T: Copy,
 {
-    data: [[T; N]; M], // Column-Major order
+    data: [[T; N]; M], // Row-Major order
 }
 
 /// An alias for a [Matrix] with a single column
@@ -39,7 +37,7 @@ pub type Vector<T, const N: usize> = Matrix<T, N, 1>;
 pub trait Dot<R> {
     type Output;
     #[must_use]
-    fn dot(&self, rhs: &R) -> Output;
+    fn dot(&self, rhs: &R) -> Self::Output;
 }
 
 pub trait Cross<R> {
@@ -47,6 +45,12 @@ pub trait Cross<R> {
     fn cross_r(&self, rhs: &R) -> Self;
     #[must_use]
     fn cross_l(&self, rhs: &R) -> Self;
+}
+
+pub trait MMul<R> {
+    type Output;
+    #[must_use]
+    fn mmul(&self, rhs: &R) -> Self::Output;
 }
 
 // Simple access functions that only require T be copyable
@@ -327,22 +331,23 @@ impl<T: Copy, const M: usize> Vector<T, M> {
     }
 }
 
-impl<T: Num + Copy, R: Num + Copy, const M: usize> Dot<Vector<R, M>> for Vector<T, M>
+impl<T: Copy, R: Copy, const M: usize> Dot<Vector<R, M>> for Vector<T, M>
 where
-    for<'a> Output: Sum<&'a T>,
+    for<'a> T: Sum<&'a T>,
     for<'b> &'b Self: Mul<&'b Vector<R, M>, Output = Self>,
 {
     type Output = T;
-    fn dot(&self, rhs: &Matrix<R, M, 1>) -> Output {
-        (self * rhs).elements().sum::<Output>()
+    fn dot(&self, rhs: &Matrix<R, M, 1>) -> Self::Output {
+        (self * rhs).elements().sum::<Self::Output>()
     }
 }
 
-impl<T: Scalar> Vector<T, 3> {
-    pub fn cross_r<R: Scalar>(&self, rhs: Vector<R, 3>) -> Self
-    where
-        T: Mul<R, Output = T> + Sub<T, Output = T>,
-    {
+impl<T: Copy, R: Copy> Cross<Vector<R, 3>> for Vector<T, 3>
+where
+    T: Mul<R, Output = T> + Sub<T, Output = T>,
+    Self: Neg<Output = Self>,
+{
+    fn cross_r(&self, rhs: &Vector<R, 3>) -> Self {
         Self::vec([
             (self[1] * rhs[2]) - (self[2] * rhs[1]),
             (self[2] * rhs[0]) - (self[0] * rhs[2]),
@@ -350,12 +355,29 @@ impl<T: Scalar> Vector<T, 3> {
         ])
     }
 
-    pub fn cross_l<R: Scalar>(&self, rhs: Vector<R, 3>) -> Self
-    where
-        T: Mul<R, Output = T> + Sub<T, Output = T>,
-        Self: Neg<Output = Self>,
-    {
+    fn cross_l(&self, rhs: &Vector<R, 3>) -> Self {
         -self.cross_r(rhs)
+    }
+}
+
+impl<T: Copy, R: Copy, const M: usize, const N: usize, const P: usize> MMul<Matrix<R, N, P>>
+    for Matrix<T, M, N>
+where
+    T: Default,
+    Vector<T, N>: Dot<Vector<R, N>, Output = T>,
+{
+    type Output = Matrix<T, M, P>;
+
+    fn mmul(&self, rhs: &Matrix<R, N, P>) -> Self::Output {
+        let mut result = Self::Output::default();
+
+        for (m, a) in self.rows().enumerate() {
+            for (n, b) in rhs.cols().enumerate() {
+                result[(m, n)] = a.dot(&b)
+            }
+        }
+
+        return result;
     }
 }
 
@@ -379,7 +401,7 @@ where
 impl<I, T, const M: usize, const N: usize> IndexMut<I> for Matrix<T, M, N>
 where
     I: Index2D,
-    T: Scalar,
+    T: Copy,
 {
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         self.get_mut(index).expect(&*format!(
@@ -391,14 +413,14 @@ where
 // Default
 impl<T: Copy + Default, const M: usize, const N: usize> Default for Matrix<T, M, N> {
     fn default() -> Self {
-        Matrix::new([[T::default(); N]; M])
+        Matrix::fill(T::default())
     }
 }
 
 // Zero
 impl<T: Copy + Zero, const M: usize, const N: usize> Zero for Matrix<T, M, N> {
     fn zero() -> Self {
-        Matrix::new([[T::zero(); N]; M])
+        Matrix::fill(T::zero())
     }
 
     fn is_zero(&self) -> bool {
@@ -409,30 +431,30 @@ impl<T: Copy + Zero, const M: usize, const N: usize> Zero for Matrix<T, M, N> {
 // One
 impl<T: Copy + One, const M: usize, const N: usize> One for Matrix<T, M, N> {
     fn one() -> Self {
-        Matrix::new([[T::one(); N]; M])
+        Matrix::fill(T::one())
     }
 }
 
-impl<T: Scalar, const M: usize, const N: usize> From<[[T; N]; M]> for Matrix<T, M, N> {
+impl<T: Copy, const M: usize, const N: usize> From<[[T; N]; M]> for Matrix<T, M, N> {
     fn from(data: [[T; N]; M]) -> Self {
         Self::new(data)
     }
 }
 
-impl<T: Scalar, const M: usize> From<[T; M]> for Vector<T, M> {
+impl<T: Copy, const M: usize> From<[T; M]> for Vector<T, M> {
     fn from(data: [T; M]) -> Self {
         Self::vec(data)
     }
 }
 
-impl<T: Scalar, const M: usize, const N: usize> From<T> for Matrix<T, M, N> {
+impl<T: Copy, const M: usize, const N: usize> From<T> for Matrix<T, M, N> {
     fn from(scalar: T) -> Self {
         Self::fill(scalar)
     }
 }
 
 // deref 1x1 matrices to a scalar automatically
-impl<T: Scalar> Deref for Matrix<T, 1, 1> {
+impl<T: Copy> Deref for Matrix<T, 1, 1> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -441,14 +463,14 @@ impl<T: Scalar> Deref for Matrix<T, 1, 1> {
 }
 
 // deref 1x1 matrices to a mutable scalar automatically
-impl<T: Scalar> DerefMut for Matrix<T, 1, 1> {
+impl<T: Copy> DerefMut for Matrix<T, 1, 1> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data[0][0]
     }
 }
 
 // IntoIter
-impl<T: Scalar, const M: usize, const N: usize> IntoIterator for Matrix<T, M, N> {
+impl<T: Copy, const M: usize, const N: usize> IntoIterator for Matrix<T, M, N> {
     type Item = T;
     type IntoIter = Flatten<std::array::IntoIter<[T; N], M>>;
 
@@ -458,7 +480,7 @@ impl<T: Scalar, const M: usize, const N: usize> IntoIterator for Matrix<T, M, N>
 }
 
 // FromIterator
-impl<T: Scalar, const M: usize, const N: usize> FromIterator<T> for Matrix<T, M, N>
+impl<T: Copy, const M: usize, const N: usize> FromIterator<T> for Matrix<T, M, N>
 where
     Self: Default,
 {
@@ -471,7 +493,7 @@ where
     }
 }
 
-impl<T: Scalar + AddAssign, const M: usize, const N: usize> Sum for Matrix<T, M, N>
+impl<T: Copy + AddAssign, const M: usize, const N: usize> Sum for Matrix<T, M, N>
 where
     Self: Zero + AddAssign,
 {
@@ -486,7 +508,7 @@ where
     }
 }
 
-impl<T: Scalar + MulAssign, const M: usize, const N: usize> Product for Matrix<T, M, N>
+impl<T: Copy + MulAssign, const M: usize, const N: usize> Product for Matrix<T, M, N>
 where
     Self: One + MulAssign,
 {

@@ -5,4 +5,4 @@ mod macros;
 mod matrix;
 mod matrix_traits;
 
-pub use matrix::{Matrix, Scalar, Vector};
+pub use matrix::{Matrix, Vector};
