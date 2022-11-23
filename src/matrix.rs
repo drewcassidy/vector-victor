@@ -1,10 +1,10 @@
 use crate::impl_matrix_op;
 use crate::index::Index2D;
+use itertools::Itertools;
 use num_traits::{Num, One, Zero};
 use std::fmt::Debug;
 use std::iter::{zip, Flatten, Product, Sum};
-use std::ops::{AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg, Sub};
-
+use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 /// A Scalar that a [Matrix] can be made up of.
 ///
 /// This trait has no associated functions and can be implemented on any type that is [Default] and
@@ -34,6 +34,10 @@ where
 /// An alias for a [Matrix] with a single column
 pub type Vector<T, const N: usize> = Matrix<T, N, 1>;
 
+pub trait MatrixDepth {
+    const DEPTH: usize = 1;
+}
+
 pub trait Dot<R> {
     type Output;
     #[must_use]
@@ -51,6 +55,17 @@ pub trait MMul<R> {
     type Output;
     #[must_use]
     fn mmul(&self, rhs: &R) -> Self::Output;
+}
+
+pub trait Identity {
+    #[must_use]
+    fn identity() -> Self;
+}
+
+pub trait Determinant {
+    type Output;
+    #[must_use]
+    fn determinant(&self) -> Self::Output;
 }
 
 // Simple access functions that only require T be copyable
@@ -360,6 +375,7 @@ where
     }
 }
 
+//Matrix Multiplication
 impl<T: Copy, R: Copy, const M: usize, const N: usize, const P: usize> MMul<Matrix<R, N, P>>
     for Matrix<T, M, N>
 where
@@ -378,6 +394,44 @@ where
         }
 
         return result;
+    }
+}
+
+// Identity
+impl<T: Copy + Zero + One, const M: usize> Identity for Matrix<T, M, M> {
+    fn identity() -> Self {
+        let mut result = Self::zero();
+        for i in 0..M {
+            result[(i, i)] = T::one();
+        }
+        return result;
+    }
+}
+
+// Determinant
+impl<T: Copy, const M: usize> Determinant for Matrix<T, M, M>
+where
+    for<'a> T: Product<T> + Sum<T> + Mul<&'a i32, Output = T>,
+{
+    type Output = T;
+
+    fn determinant(&self) -> Self::Output {
+        // Leibniz formula
+
+        // alternating 1,-1,1,-1...
+        let signs = [1, -1].iter().cycle();
+        // all permutations of 0..M
+        let column_permutations = (0..M).permutations(M);
+
+        // Calculating the determinant is done by summing up M steps,
+        // each with a different permutation of columns and alternating sign
+        // Each step involves a product of the components being operated on
+        let summand = |(columns, sign)| -> T {
+            zip(0..M, columns).map(|(r, c)| self[(r, c)]).product::<T>() * sign
+        };
+
+        // Now sum up all steps
+        zip(column_permutations, signs).map(summand).sum()
     }
 }
 
