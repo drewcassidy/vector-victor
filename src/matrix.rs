@@ -1,10 +1,13 @@
 use crate::impl_matrix_op;
 use crate::index::Index2D;
-use itertools::Itertools;
-use num_traits::{Num, One, Zero};
+
+use num_traits::real::Real;
+use num_traits::{Num, NumOps, One, Signed, Zero};
 use std::fmt::Debug;
 use std::iter::{zip, Flatten, Product, Sum};
+
 use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg, Sub};
+
 /// A Scalar that a [Matrix] can be made up of.
 ///
 /// This trait has no associated functions and can be implemented on any type that is [Default] and
@@ -34,39 +37,37 @@ where
 /// An alias for a [Matrix] with a single column
 pub type Vector<T, const N: usize> = Matrix<T, N, 1>;
 
-pub trait MatrixDepth {
-    const DEPTH: usize = 1;
+pub trait MatrixLike {
+    type Scalar: Copy;
+    const WIDTH: usize;
+    const HEIGHT: usize;
+}
+impl<T: Copy, const M: usize, const N: usize> MatrixLike for Matrix<T, M, N> {
+    type Scalar = T;
+    const WIDTH: usize = N;
+    const HEIGHT: usize = M;
 }
 
-pub trait Dot<R> {
-    type Output;
-    #[must_use]
-    fn dot(&self, rhs: &R) -> Self::Output;
-}
+pub trait SquareMatrix {}
+impl<T: Copy, const M: usize> SquareMatrix for Matrix<T, M, M> {}
 
-pub trait Cross<R> {
-    #[must_use]
-    fn cross_r(&self, rhs: &R) -> Self;
-    #[must_use]
-    fn cross_l(&self, rhs: &R) -> Self;
-}
-
-pub trait MMul<R> {
-    type Output;
-    #[must_use]
-    fn mmul(&self, rhs: &R) -> Self::Output;
-}
-
-pub trait Identity {
-    #[must_use]
-    fn identity() -> Self;
-}
-
-pub trait Determinant {
-    type Output;
-    #[must_use]
-    fn determinant(&self) -> Self::Output;
-}
+// pub trait Dot<R>: MatrixLike {
+//     #[must_use]
+//     fn dot(&self, rhs: &R) -> <Self as MatrixLike>::Scalar;
+// }
+//
+// pub trait Cross<R> {
+//     #[must_use]
+//     fn cross_r(&self, rhs: &R) -> Self;
+//     #[must_use]
+//     fn cross_l(&self, rhs: &R) -> Self;
+// }
+//
+// pub trait MMul<R> {
+//     type Output;
+//     #[must_use]
+//     fn mmul(&self, rhs: &R) -> Self::Output;
+// }
 
 // Simple access functions that only require T be copyable
 impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
@@ -235,15 +236,12 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn row(&self, m: usize) -> Vector<T, N> {
-        assert!(
-            m < M,
-            "Row index {} out of bounds for {}x{} matrix",
-            m,
-            M,
-            N
-        );
-        Vector::<T, N>::vec(self.data[m])
+    pub fn row(&self, m: usize) -> Option<Vector<T, N>> {
+        if m < M {
+            Some(Vector::<T, N>::vec(self.data[m]))
+        } else {
+            None
+        }
     }
 
     #[inline]
@@ -258,6 +256,12 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
         for (n, v) in val.elements().enumerate() {
             self.data[m][n] = *v;
         }
+    }
+
+    pub fn pivot_row(&mut self, m1: usize, m2: usize) {
+        let tmp = self.row(m2).expect("Invalid row index");
+        self.set_row(m2, &self.row(m1).expect("Invalid row index"));
+        self.set_row(m1, &tmp);
     }
 
     #[inline]
@@ -285,9 +289,15 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
         }
     }
 
+    pub fn pivot_col(&mut self, n1: usize, n2: usize) {
+        let tmp = self.col(n2).expect("Invalid column index");
+        self.set_col(n2, &self.col(n1).expect("Invalid column index"));
+        self.set_col(n1, &tmp);
+    }
+
     #[must_use]
     pub fn rows<'a>(&'a self) -> impl Iterator<Item = Vector<T, N>> + 'a {
-        (0..M).map(|m| self.row(m))
+        (0..M).map(|m| self.row(m).expect("invalid row reached while iterating"))
     }
 
     #[must_use]
@@ -300,6 +310,18 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
         Matrix<T, N, M>: Default,
     {
         Matrix::<T, N, M>::from_rows(self.cols())
+    }
+
+    pub fn abs(&self) -> Self
+    where
+        T: Default + PartialOrd + Zero + Neg<Output = T>,
+    {
+        self.elements()
+            .map(|&x| match x > T::zero() {
+                true => x,
+                false => -x,
+            })
+            .collect()
     }
 
     // pub fn mmul<const P: usize, R, O>(&self, rhs: &Matrix<R, P, N>) -> Matrix<T, P, M>
@@ -344,25 +366,22 @@ impl<T: Copy, const M: usize> Vector<T, M> {
             data: data.map(|e| [e]),
         };
     }
-}
 
-impl<T: Copy, R: Copy, const M: usize> Dot<Vector<R, M>> for Vector<T, M>
-where
-    for<'a> T: Sum<&'a T>,
-    for<'b> &'b Self: Mul<&'b Vector<R, M>, Output = Self>,
-{
-    type Output = T;
-    fn dot(&self, rhs: &Matrix<R, M, 1>) -> Self::Output {
-        (self * rhs).elements().sum::<Self::Output>()
+    pub fn dot<R>(&self, rhs: &R) -> T
+    where
+        for<'s> &'s Self: Mul<&'s R, Output = Self>,
+        T: Sum<T>,
+    {
+        (self * rhs).elements().cloned().sum()
     }
 }
 
-impl<T: Copy, R: Copy> Cross<Vector<R, 3>> for Vector<T, 3>
-where
-    T: Mul<R, Output = T> + Sub<T, Output = T>,
-    Self: Neg<Output = Self>,
-{
-    fn cross_r(&self, rhs: &Vector<R, 3>) -> Self {
+// Cross Product
+impl<T: Copy> Vector<T, 3> {
+    pub fn cross_r<R: Copy>(&self, rhs: &Vector<R, 3>) -> Self
+    where
+        T: NumOps<R> + NumOps,
+    {
         Self::vec([
             (self[1] * rhs[2]) - (self[2] * rhs[1]),
             (self[2] * rhs[0]) - (self[0] * rhs[2]),
@@ -370,22 +389,21 @@ where
         ])
     }
 
-    fn cross_l(&self, rhs: &Vector<R, 3>) -> Self {
+    pub fn cross_l<R: Copy>(&self, rhs: &Vector<R, 3>) -> Self
+    where
+        T: NumOps<R> + NumOps + Neg<Output = T>,
+    {
         -self.cross_r(rhs)
     }
 }
 
 //Matrix Multiplication
-impl<T: Copy, R: Copy, const M: usize, const N: usize, const P: usize> MMul<Matrix<R, N, P>>
-    for Matrix<T, M, N>
-where
-    T: Default,
-    Vector<T, N>: Dot<Vector<R, N>, Output = T>,
-{
-    type Output = Matrix<T, M, P>;
-
-    fn mmul(&self, rhs: &Matrix<R, N, P>) -> Self::Output {
-        let mut result = Self::Output::default();
+impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
+    pub fn mmul<R: Copy, const P: usize>(&self, rhs: &Matrix<R, N, P>) -> Matrix<T, M, P>
+    where
+        T: Default + NumOps<R> + Sum,
+    {
+        let mut result: Matrix<T, M, P> = Default::default();
 
         for (m, a) in self.rows().enumerate() {
             for (n, b) in rhs.cols().enumerate() {
@@ -397,41 +415,97 @@ where
     }
 }
 
-// Identity
-impl<T: Copy + Zero + One, const M: usize> Identity for Matrix<T, M, M> {
-    fn identity() -> Self {
+// Matrix Decomposition and related functions
+impl<T: Copy, const N: usize> Matrix<T, N, N>
+where
+    T: Real + Default,
+{
+    pub fn lu(&self) -> Option<(Self, Vector<usize, N>, T)> {
+        let mut lu = self.clone();
+        let mut idx: Vector<usize, N> = Default::default();
+        let mut d = T::one();
+
+        let mut vv: Vector<T, N> = self
+            .rows()
+            .map(|row| {
+                let m = row.elements().cloned().reduce(|acc, x| acc.max(x.abs()))?;
+                match m < T::epsilon() {
+                    true => None,
+                    false => Some(T::one() / m),
+                }
+            })
+            .collect::<Option<_>>()?; // get the inverse maxabs value in each row
+
+        for k in 0..N {
+            // search for the pivot element and its index
+            let ipivot = (lu.col(k)? * vv)
+                .abs()
+                .elements()
+                .enumerate()
+                .skip(k) // below the diagonal
+                .reduce(|(imax, xmax), (i, x)| match x > xmax {
+                    // Is the figure of merit for the pivot better than the best so far?
+                    true => (i, x),
+                    false => (imax, xmax),
+                })?
+                .0;
+
+            // do we need to interchange rows?
+            if k != ipivot {
+                lu.pivot_row(ipivot, k); // yes, we do
+                d = -d; // change parity of d
+                vv[ipivot] = vv[k] //interchange scale factor
+            }
+            idx[k] = ipivot;
+
+            let pivot = lu[(k, k)];
+            if pivot.abs() < T::epsilon() {
+                // if the pivot is zero, the matrix is singular
+                return None;
+            };
+
+            for i in (k + 1)..N {
+                // divide by the pivot element
+                let dpivot = lu[(i, k)] / pivot;
+                lu[(i, k)] = dpivot;
+                for j in (k + 1)..N {
+                    // reduce remaining submatrix
+                    lu[(i, j)] = lu[(i, j)] - dpivot * lu[(k, j)];
+                }
+            }
+        }
+
+        return Some((lu, idx, d));
+    }
+
+    fn inverse(&self) -> Option<Self> {
+        todo!()
+    }
+
+    // fn det(&self) -> Self::Scalar {
+    //     todo!()
+    // }
+}
+
+// Square matrices
+impl<T: Copy, const N: usize> Matrix<T, N, N> {
+    pub fn identity() -> Self
+    where
+        T: Zero + One,
+    {
         let mut result = Self::zero();
-        for i in 0..M {
+        for i in 0..N {
             result[(i, i)] = T::one();
         }
         return result;
     }
-}
 
-// Determinant
-impl<T: Copy, const M: usize> Determinant for Matrix<T, M, M>
-where
-    for<'a> T: Product<T> + Sum<T> + Mul<&'a i32, Output = T>,
-{
-    type Output = T;
+    pub fn diagonals<'s>(&'s self) -> impl Iterator<Item = T> + 's {
+        (0..N).map(|n| self[(n, n)])
+    }
 
-    fn determinant(&self) -> Self::Output {
-        // Leibniz formula
-
-        // alternating 1,-1,1,-1...
-        let signs = [1, -1].iter().cycle();
-        // all permutations of 0..M
-        let column_permutations = (0..M).permutations(M);
-
-        // Calculating the determinant is done by summing up M steps,
-        // each with a different permutation of columns and alternating sign
-        // Each step involves a product of the components being operated on
-        let summand = |(columns, sign)| -> T {
-            zip(0..M, columns).map(|(r, c)| self[(r, c)]).product::<T>() * sign
-        };
-
-        // Now sum up all steps
-        zip(column_permutations, signs).map(summand).sum()
+    pub fn subdiagonals<'s>(&'s self) -> impl Iterator<Item = T> + 's {
+        (0..N - 1).map(|n| self[(n, n + 1)])
     }
 }
 
@@ -549,31 +623,19 @@ where
 
 impl<T: Copy + AddAssign, const M: usize, const N: usize> Sum for Matrix<T, M, N>
 where
-    Self: Zero + AddAssign,
+    Self: Zero + Add<Output = Self>,
 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        let mut sum = Self::zero();
-
-        for m in iter {
-            sum += m;
-        }
-
-        sum
+        iter.fold(Self::zero(), Self::add)
     }
 }
 
 impl<T: Copy + MulAssign, const M: usize, const N: usize> Product for Matrix<T, M, N>
 where
-    Self: One + MulAssign,
+    Self: One + Mul<Output = Self>,
 {
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
-        let mut prod = Self::one();
-
-        for m in iter {
-            prod *= m;
-        }
-
-        prod
+        iter.fold(Self::one(), Self::mul)
     }
 }
 
