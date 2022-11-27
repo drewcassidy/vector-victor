@@ -56,6 +56,7 @@ macro_rules! impl_matrix_op {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_op_m_internal_ex {
     ($ops_trait:ident, $ops_fn:ident) => {
@@ -64,6 +65,7 @@ macro_rules! _impl_op_m_internal_ex {
     }
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_op_mm_internal_ex {
     ($ops_trait:ident, $ops_fn:ident) => {
@@ -74,6 +76,7 @@ macro_rules! _impl_op_mm_internal_ex {
     }
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_opassign_mm_internal_ex {
     ($ops_trait:ident, $ops_fn:ident) => {
@@ -82,6 +85,7 @@ macro_rules! _impl_opassign_mm_internal_ex {
     }
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_op_ms_internal_ex {
     ($ops_trait:ident, $ops_fn:ident) => {
@@ -90,6 +94,7 @@ macro_rules! _impl_op_ms_internal_ex {
     }
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_opassign_ms_internal_ex {
     ($ops_trait:ident, $ops_fn:ident) => {
@@ -97,6 +102,7 @@ macro_rules! _impl_opassign_ms_internal_ex {
     }
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_op_m_internal {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $out:ty) => {
@@ -120,6 +126,7 @@ macro_rules! _impl_op_m_internal {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_op_mm_internal {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
@@ -144,6 +151,7 @@ macro_rules! _impl_op_mm_internal {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_opassign_mm_internal {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
@@ -164,6 +172,7 @@ macro_rules! _impl_opassign_mm_internal {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_op_ms_internal {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
@@ -188,6 +197,7 @@ macro_rules! _impl_op_ms_internal {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_opassign_ms_internal {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {

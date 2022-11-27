@@ -8,20 +8,6 @@ use std::iter::{zip, Flatten, Product, Sum};
 
 use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 
-/// A Scalar that a [Matrix] can be made up of.
-///
-/// This trait has no associated functions and can be implemented on any type that is [Default] and
-/// [Copy] and has a static lifetime.
-// pub trait Scalar: Default + Copy + 'static {}
-// macro_rules! multi_impl { ($name:ident for $($t:ty),*) => ($( impl $name for $t {} )*) }
-// multi_impl!(Scalar for i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
-// impl<T> Scalar for &'static T
-// where
-//     T: Scalar,
-//     &'static T: Default,
-// {
-// }
-
 /// A 2D array of values which can be operated upon.
 ///
 /// Matrices have a fixed size known at compile time, and must be made up of types that implement
@@ -415,12 +401,43 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
     }
 }
 
-// Matrix Decomposition and related functions
-impl<T: Copy, const N: usize> Matrix<T, N, N>
-where
-    T: Real + Default,
-{
-    pub fn lu(&self) -> Option<(Self, Vector<usize, N>, T)> {
+// Square matrix impls
+impl<T: Copy, const N: usize> Matrix<T, N, N> {
+    #[must_use]
+    pub fn identity() -> Self
+    where
+        T: Zero + One,
+    {
+        let mut result = Self::zero();
+        for i in 0..N {
+            result[(i, i)] = T::one();
+        }
+        return result;
+    }
+
+    #[must_use]
+    pub fn diagonals<'s>(&'s self) -> impl Iterator<Item = T> + 's {
+        (0..N).map(|n| self[(n, n)])
+    }
+
+    #[must_use]
+    pub fn subdiagonals<'s>(&'s self) -> impl Iterator<Item = T> + 's {
+        (0..N - 1).map(|n| self[(n, n + 1)])
+    }
+
+    #[must_use]
+    ///
+    /// <math xmlns="http://www.w3.org/1998/Math/MathML" alttext="a^{3}" display="block">
+    ///   <msup>
+    ///     <mi>a</mi>
+    ///     <mn>3</mn>
+    ///   </msup>
+    /// </math>
+    pub fn lu(&self) -> Option<(Self, Vector<usize, N>, T)>
+    where
+        T: Real + Default,
+    {
+        // Implementation from Numerical Recipes §2.3
         let mut lu = self.clone();
         let mut idx: Vector<usize, N> = Default::default();
         let mut d = T::one();
@@ -438,7 +455,7 @@ where
 
         for k in 0..N {
             // search for the pivot element and its index
-            let ipivot = (lu.col(k)? * vv)
+            let (ipivot, _) = (lu.col(k)? * vv)
                 .abs()
                 .elements()
                 .enumerate()
@@ -447,8 +464,7 @@ where
                     // Is the figure of merit for the pivot better than the best so far?
                     true => (i, x),
                     false => (imax, xmax),
-                })?
-                .0;
+                })?;
 
             // do we need to interchange rows?
             if k != ipivot {
@@ -456,8 +472,8 @@ where
                 d = -d; // change parity of d
                 vv[ipivot] = vv[k] //interchange scale factor
             }
-            idx[k] = ipivot;
 
+            idx[k] = ipivot;
             let pivot = lu[(k, k)];
             if pivot.abs() < T::epsilon() {
                 // if the pivot is zero, the matrix is singular
@@ -470,7 +486,7 @@ where
                 lu[(i, k)] = dpivot;
                 for j in (k + 1)..N {
                     // reduce remaining submatrix
-                    lu[(i, j)] = lu[(i, j)] - dpivot * lu[(k, j)];
+                    lu[(i, j)] = lu[(i, j)] - (dpivot * lu[(k, j)]);
                 }
             }
         }
@@ -478,36 +494,112 @@ where
         return Some((lu, idx, d));
     }
 
-    fn inverse(&self) -> Option<Self> {
-        todo!()
+    #[must_use]
+    pub fn inverse(&self) -> Option<Self>
+    where
+        T: Real + Default + Sum,
+    {
+        self.solve(&Self::identity())
     }
 
-    // fn det(&self) -> Self::Scalar {
-    //     todo!()
-    // }
+    #[must_use]
+    pub fn det(&self) -> T
+    where
+        T: Real + Default + Product + Sum,
+    {
+        match N {
+            0 => T::zero(),
+            1 => self[0],
+            2 => (self[(0, 0)] * self[(1, 1)]) - (self[(0, 1)] * self[(1, 0)]),
+            3 => {
+                // use rule of Sarrus
+                (0..N) // starting column
+                    .map(|i| {
+                        let dn = (0..N)
+                            .map(|j| -> T { self[(j, (j + i) % N)] })
+                            .product::<T>();
+                        let up = (0..N)
+                            .map(|j| -> T { self[(N - j - 1, (j + i) % N)] })
+                            .product::<T>();
+                        dn - up
+                    })
+                    .sum::<T>()
+            }
+            _ => {
+                // use LU decomposition
+                if let Some((lu, _, d)) = self.lu() {
+                    d * lu.diagonals().product()
+                } else {
+                    T::zero()
+                }
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn solve<const M: usize>(&self, b: &Matrix<T, N, M>) -> Option<Matrix<T, N, M>>
+    where
+        T: Real + Default + Sum,
+    {
+        Some(self.lu()?.solve(b))
+    }
+}
+
+pub trait LUSolve<R>: Copy {
+    fn solve(&self, rhs: &R) -> R;
+}
+
+impl<T: Copy, const N: usize, const M: usize> LUSolve<Matrix<T, N, M>>
+    for (Matrix<T, N, N>, Vector<usize, N>, T)
+where
+    for<'t> T: Real + Default + Sum,
+{
+    #[must_use]
+    fn solve(&self, b: &Matrix<T, N, M>) -> Matrix<T, N, M> {
+        let (lu, idx, _) = self;
+        Matrix::<T, N, M>::from_cols(b.cols().map(|mut x| {
+            // Implementation from Numerical Recipes §2.3
+
+            // When ii is set to a positive value,
+            // it will become the index of the first nonvanishing element of b
+            let mut ii = 0usize;
+            for i in 0..N {
+                // forward substitution
+                let ip = idx[i]; // i permuted
+                let sum = x[ip];
+                x[ip] = x[i]; // unscramble as we go
+                if ii > 0 {
+                    x[i] = sum
+                        - (lu.row(i).expect("Invalid row reached") * x)
+                            .elements()
+                            .skip(ii - 1)
+                            .cloned()
+                            .sum()
+                } else {
+                    x[i] = sum;
+                    if sum.abs() > T::epsilon() {
+                        ii = i + 1;
+                    }
+                }
+            }
+            for i in (0..(N - 1)).rev() {
+                // back substitution
+                let sum = x[i]
+                    - (lu.row(i).expect("Invalid row reached") * x)
+                        .elements()
+                        .skip(ii - 1)
+                        .cloned()
+                        .sum();
+
+                x[i] = sum / lu[(i, i)]
+            }
+            x
+        }))
+    }
 }
 
 // Square matrices
-impl<T: Copy, const N: usize> Matrix<T, N, N> {
-    pub fn identity() -> Self
-    where
-        T: Zero + One,
-    {
-        let mut result = Self::zero();
-        for i in 0..N {
-            result[(i, i)] = T::one();
-        }
-        return result;
-    }
-
-    pub fn diagonals<'s>(&'s self) -> impl Iterator<Item = T> + 's {
-        (0..N).map(|n| self[(n, n)])
-    }
-
-    pub fn subdiagonals<'s>(&'s self) -> impl Iterator<Item = T> + 's {
-        (0..N - 1).map(|n| self[(n, n + 1)])
-    }
-}
+impl<T: Copy, const N: usize> Matrix<T, N, N> {}
 
 // Index
 impl<I, T, const M: usize, const N: usize> Index<I> for Matrix<T, M, N>
