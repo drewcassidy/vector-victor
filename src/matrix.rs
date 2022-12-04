@@ -1,12 +1,15 @@
 use crate::impl_matrix_op;
 use crate::index::Index2D;
+use crate::util::{checked_div, checked_inv};
 
 use num_traits::real::Real;
 use num_traits::{Num, NumOps, One, Zero};
 use std::fmt::Debug;
 use std::iter::{zip, Flatten, Product, Sum};
+use std::mem::swap;
 
 use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg};
+use std::process::id;
 
 /// A 2D array of values which can be operated upon.
 ///
@@ -181,7 +184,7 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
         Some(&mut self.data[m][n])
     }
 
-    /// Returns a row of the matrix. panics if index is out of bounds
+    /// Returns a row of the matrix. or [None] if index is out of bounds
     ///
     /// # Examples
     ///
@@ -194,12 +197,15 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn row(&self, m: usize) -> Option<Vector<T, N>> {
-        if m < M {
-            Some(Vector::<T, N>::vec(self.data[m]))
-        } else {
-            None
-        }
+    pub fn row(&self, m: usize) -> Vector<T, N> {
+        assert!(
+            m < M,
+            "Row index {} out of bounds for {}x{} matrix",
+            m,
+            M,
+            N
+        );
+        Vector::<T, N>::vec(self.data[m])
     }
 
     #[inline]
@@ -211,25 +217,28 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
             M,
             N
         );
-        for (n, v) in val.elements().enumerate() {
-            self.data[m][n] = *v;
+        for n in 0..N {
+            self.data[m][n] = val.data[n][0];
         }
     }
 
     pub fn pivot_row(&mut self, m1: usize, m2: usize) {
-        let tmp = self.row(m2).expect("Invalid row index");
-        self.set_row(m2, &self.row(m1).expect("Invalid row index"));
+        let tmp = self.row(m2);
+        self.set_row(m2, &self.row(m1));
         self.set_row(m1, &tmp);
     }
 
     #[inline]
     #[must_use]
-    pub fn col(&self, n: usize) -> Option<Vector<T, M>> {
-        if n < N {
-            Some(Vector::<T, M>::vec(self.data.map(|r| r[n])))
-        } else {
-            None
-        }
+    pub fn col(&self, n: usize) -> Vector<T, M> {
+        assert!(
+            n < N,
+            "Column index {} out of bounds for {}x{} matrix",
+            n,
+            M,
+            N
+        );
+        Vector::<T, M>::vec(self.data.map(|r| r[n]))
     }
 
     #[inline]
@@ -242,25 +251,41 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
             N
         );
 
-        for (m, v) in val.elements().enumerate() {
-            self.data[m][n] = *v;
+        for m in 0..M {
+            self.data[m][n] = val.data[m][0];
         }
     }
 
     pub fn pivot_col(&mut self, n1: usize, n2: usize) {
-        let tmp = self.col(n2).expect("Invalid column index");
-        self.set_col(n2, &self.col(n1).expect("Invalid column index"));
+        let tmp = self.col(n2);
+        self.set_col(n2, &self.col(n1));
         self.set_col(n1, &tmp);
     }
 
     #[must_use]
     pub fn rows<'a>(&'a self) -> impl Iterator<Item = Vector<T, N>> + 'a {
-        (0..M).map(|m| self.row(m).expect("invalid row reached while iterating"))
+        (0..M).map(|m| self.row(m))
     }
 
     #[must_use]
     pub fn cols<'a>(&'a self) -> impl Iterator<Item = Vector<T, M>> + 'a {
-        (0..N).map(|n| self.col(n).expect("invalid column reached while iterating"))
+        (0..N).map(|n| self.col(n))
+    }
+
+    #[must_use]
+    pub fn permute_rows(&self, ms: &Vector<usize, M>) -> Self
+    where
+        T: Default,
+    {
+        Self::from_rows(ms.elements().map(|&m| self.row(m)))
+    }
+
+    #[must_use]
+    pub fn permute_cols(&self, ns: &Vector<usize, N>) -> Self
+    where
+        T: Default,
+    {
+        Self::from_cols(ns.elements().map(|&n| self.col(n)))
     }
 
     pub fn transpose(&self) -> Matrix<T, N, M>
@@ -305,14 +330,7 @@ impl<T: Copy, const N: usize> Vector<T, N> {
     /// Create a vector from a 1D array.
     /// Note that vectors are always column vectors unless explicitly instantiated as row vectors
     ///
-    /// # Arguments
-    ///
-    /// * `data`: A 1D array of elements to copy into the new vector
-    ///
-    /// returns: Vector<T, M>
-    ///
     /// # Examples
-    ///
     /// ```
     /// # use vector_victor::{Matrix, Vector};
     /// let my_vector = Vector::vec([1,2,3,4]);
@@ -374,8 +392,9 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
     }
 }
 
-// Square matrix impls
+// Square matrix implementations
 impl<T: Copy, const N: usize> Matrix<T, N, N> {
+    /// Create an identity matrix
     #[must_use]
     pub fn identity() -> Self
     where
@@ -388,31 +407,36 @@ impl<T: Copy, const N: usize> Matrix<T, N, N> {
         return result;
     }
 
+    /// returns an iterator over the elements along the diagonal of a square matrix
     #[must_use]
     pub fn diagonals<'s>(&'s self) -> impl Iterator<Item = T> + 's {
         (0..N).map(|n| self[(n, n)])
     }
 
+    /// Returns an iterator over the elements directly below the diagonal of a square matrix
     #[must_use]
     pub fn subdiagonals<'s>(&'s self) -> impl Iterator<Item = T> + 's {
         (0..N - 1).map(|n| self[(n, n + 1)])
     }
 
-    #[must_use]
+    /// Returns `Some(lu, idx, d)`, or [None] if the matrix is singular.
     ///
-    /// <math xmlns="http://www.w3.org/1998/Math/MathML" alttext="a^{3}" display="block">
-    ///   <msup>
-    ///     <mi>a</mi>
-    ///     <mn>3</mn>
-    ///   </msup>
-    /// </math>
+    /// Where:
+    /// * `lu`: The LU decomposition of `self`. The upper and lower matrices are combined into a single matrix
+    /// * `idx`: The permutation of rows on the original matrix needed to perform the decomposition.
+    /// Each element is the corresponding row index in the original matrix
+    /// * `d`: The permutation parity of `idx`, either `1` for even or `-1` for odd
+    ///
+    /// The resulting tuple (once unwrapped) has the [LUSolve] trait, allowing it to be used for
+    /// solving multiple matrices without having to repeat the LU decomposition process
+    #[must_use]
     pub fn lu(&self) -> Option<(Self, Vector<usize, N>, T)>
     where
         T: Real + Default,
     {
         // Implementation from Numerical Recipes §2.3
         let mut lu = self.clone();
-        let mut idx: Vector<usize, N> = Default::default();
+        let mut idx: Vector<usize, N> = (0..N).collect();
         let mut d = T::one();
 
         let mut vv: Vector<T, N> = self
@@ -428,7 +452,7 @@ impl<T: Copy, const N: usize> Matrix<T, N, N> {
 
         for k in 0..N {
             // search for the pivot element and its index
-            let (ipivot, _) = (lu.col(k)? * vv)
+            let (ipivot, _) = (lu.col(k) * vv)
                 .abs()
                 .elements()
                 .enumerate()
@@ -442,11 +466,11 @@ impl<T: Copy, const N: usize> Matrix<T, N, N> {
             // do we need to interchange rows?
             if k != ipivot {
                 lu.pivot_row(ipivot, k); // yes, we do
+                idx.pivot_row(ipivot, k);
                 d = -d; // change parity of d
                 vv[ipivot] = vv[k] //interchange scale factor
             }
 
-            idx[k] = ipivot;
             let pivot = lu[(k, k)];
             if pivot.abs() < T::epsilon() {
                 // if the pivot is zero, the matrix is singular
@@ -467,21 +491,33 @@ impl<T: Copy, const N: usize> Matrix<T, N, N> {
         return Some((lu, idx, d));
     }
 
+    /// Computes the inverse matrix of `self`, or [None] if the matrix cannot be inverted.
     #[must_use]
     pub fn inverse(&self) -> Option<Self>
     where
-        T: Real + Default + Sum,
+        T: Real + Default + Sum + Product,
     {
-        self.solve(&Self::identity())
+        match N {
+            1 => Some(Self::fill(checked_inv(self[0])?)),
+            2 => {
+                let mut result = Self::default();
+                result[(0, 0)] = self[(1, 1)];
+                result[(1, 1)] = self[(0, 0)];
+                result[(1, 0)] = -self[(1, 0)];
+                result[(0, 1)] = -self[(0, 1)];
+                Some(result * checked_inv(self.det())?)
+            }
+            _ => Some(self.lu()?.inverse()),
+        }
     }
 
+    /// Computes the determinant of `self`.
     #[must_use]
     pub fn det(&self) -> T
     where
         T: Real + Default + Product + Sum,
     {
         match N {
-            0 => T::one(),
             1 => self[0],
             2 => (self[(0, 0)] * self[(1, 1)]) - (self[(0, 1)] * self[(1, 0)]),
             3 => {
@@ -500,37 +536,52 @@ impl<T: Copy, const N: usize> Matrix<T, N, N> {
             }
             _ => {
                 // use LU decomposition
-                if let Some((lu, _, d)) = self.lu() {
-                    d * lu.diagonals().product()
-                } else {
-                    T::zero()
-                }
+                self.lu().map_or(T::zero(), |lu| lu.det())
             }
         }
     }
-
+    /// Solves a system of `Ax = b` using `self` for `A`, or [None] if there is no solution.
     #[must_use]
     pub fn solve<const M: usize>(&self, b: &Matrix<T, N, M>) -> Option<Matrix<T, N, M>>
     where
-        T: Real + Default + Sum,
+        T: Real + Default + Sum + Product,
     {
         Some(self.lu()?.solve(b))
     }
 }
 
-pub trait LUSolve<R>: Copy {
-    fn solve(&self, rhs: &R) -> R;
+/// Trait for the result of [Matrix::lu()],
+/// allowing a single LU decomposition to be used to solve multiple equations
+pub trait LUSolve<T, const N: usize>: Copy
+where
+    T: Real + Copy,
+{
+    /// Solves a system of `Ax = b` using an LU decomposition.
+    fn solve<const M: usize>(&self, rhs: &Matrix<T, N, M>) -> Matrix<T, N, M>;
+
+    /// Solves the determinant using an LU decomposition,
+    /// by multiplying the product of the diagonals by the permutation parity
+    fn det(&self) -> T;
+
+    /// Solves the inverse of the matrix that the LU decomposition represents.
+    fn inverse(&self) -> Matrix<T, N, N> {
+        return self.solve(&Matrix::<T, N, N>::identity());
+    }
+
+    /// Separate the lu decomposition into L and U matrices, such that `L*U = P*A`.
+    fn separate(&self) -> (Matrix<T, N, N>, Matrix<T, N, N>);
 }
 
-impl<T: Copy, const N: usize, const M: usize> LUSolve<Matrix<T, N, M>>
-    for (Matrix<T, N, N>, Vector<usize, N>, T)
+impl<T: Copy, const N: usize> LUSolve<T, N> for (Matrix<T, N, N>, Vector<usize, N>, T)
 where
-    for<'t> T: Real + Default + Sum,
+    T: Real + Default + Sum + Product,
 {
     #[must_use]
-    fn solve(&self, b: &Matrix<T, N, M>) -> Matrix<T, N, M> {
+    fn solve<const M: usize>(&self, b: &Matrix<T, N, M>) -> Matrix<T, N, M> {
         let (lu, idx, _) = self;
-        Matrix::<T, N, M>::from_cols(b.cols().map(|mut x| {
+        let bp = b.permute_rows(idx);
+
+        Matrix::from_cols(bp.cols().map(|mut x| {
             // Implementation from Numerical Recipes §2.3
 
             // When ii is set to a positive value,
@@ -538,42 +589,48 @@ where
             let mut ii = 0usize;
             for i in 0..N {
                 // forward substitution
-                let ip = idx[i]; // i permuted
-                let sum = x[ip];
-                x[ip] = x[i]; // unscramble as we go
-                if ii > 0 {
-                    x[i] = sum
-                        - (lu.row(i).expect("Invalid row reached") * x)
-                            .elements()
-                            .take(i)
-                            .skip(ii - 1)
-                            .cloned()
-                            .sum()
-                } else {
-                    x[i] = sum;
-                    if sum.abs() > T::epsilon() {
-                        ii = i + 1;
+                let mut sum = x[i];
+                if ii != 0 {
+                    for j in (ii - 1)..i {
+                        sum = sum - (lu[(i, j)] * x[j]);
                     }
+                } else if sum.abs() > T::epsilon() {
+                    ii = i + 1;
                 }
+                x[i] = sum;
             }
-            for i in (0..(N - 1)).rev() {
+            for i in (0..N).rev() {
                 // back substitution
-                let sum = x[i]
-                    - (lu.row(i).expect("Invalid row reached") * x)
-                        .elements()
-                        .skip(i + 1)
-                        .cloned()
-                        .sum();
-
+                let mut sum = x[i];
+                for j in (i + 1)..N {
+                    sum = sum - (lu[(i, j)] * x[j]);
+                }
                 x[i] = sum / lu[(i, i)]
             }
             x
         }))
     }
-}
 
-// Square matrices
-impl<T: Copy, const N: usize> Matrix<T, N, N> {}
+    fn det(&self) -> T {
+        let (lu, _, d) = self;
+        *d * lu.diagonals().product()
+    }
+
+    fn separate(&self) -> (Matrix<T, N, N>, Matrix<T, N, N>) {
+        let mut l = Matrix::<T, N, N>::identity();
+        let mut u = self.0; // lu
+
+        for m in 1..N {
+            for n in 0..m {
+                // iterate over lower diagonal
+                l[(m, n)] = u[(m, n)];
+                u[(m, n)] = T::zero();
+            }
+        }
+
+        (l, u)
+    }
+}
 
 // Index
 impl<I, T, const M: usize, const N: usize> Index<I> for Matrix<T, M, N>
@@ -583,6 +640,7 @@ where
 {
     type Output = T;
 
+    #[inline(always)]
     fn index(&self, index: I) -> &Self::Output {
         self.get(index).expect(&*format!(
             "index {:?} out of range for {}x{} Matrix",
@@ -597,6 +655,7 @@ where
     I: Index2D,
     T: Copy,
 {
+    #[inline(always)]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         self.get_mut(index).expect(&*format!(
             "index {:?} out of range for {}x{} Matrix",
