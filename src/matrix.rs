@@ -1,15 +1,13 @@
 use crate::impl_matrix_op;
 use crate::index::Index2D;
-use crate::util::{checked_div, checked_inv};
+use crate::util::checked_inv;
 
 use num_traits::real::Real;
 use num_traits::{Num, NumOps, One, Zero};
 use std::fmt::Debug;
 use std::iter::{zip, Flatten, Product, Sum};
-use std::mem::swap;
 
 use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg};
-use std::process::id;
 
 /// A 2D array of values which can be operated upon.
 ///
@@ -306,23 +304,6 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
             })
             .collect()
     }
-
-    // pub fn mmul<const P: usize, R, O>(&self, rhs: &Matrix<R, P, N>) -> Matrix<T, P, M>
-    // where
-    //     R: Num,
-    //     T: Scalar + Mul<R, Output = T>,
-    //     Vector<T, N>: Dot<Vector<R, M>, Output = T>,
-    // {
-    //     let mut result: Matrix<T, P, M> = Zero::zero();
-    //
-    //     for (m, a) in self.rows().enumerate() {
-    //         for (n, b) in rhs.cols().enumerate() {
-    //             // result[(m, n)] = a.dot(b)
-    //         }
-    //     }
-    //
-    //     return result;
-    // }
 }
 
 // 1D vector implementations
@@ -366,11 +347,11 @@ impl<T: Copy> Vector<T, 3> {
         ])
     }
 
-    pub fn cross_l<R: Copy>(&self, rhs: &Vector<R, 3>) -> Self
+    pub fn cross_l<R: Copy>(&self, rhs: &Vector<R, 3>) -> Vector<R, 3>
     where
-        T: NumOps<R> + NumOps + Neg<Output = T>,
+        R: NumOps<T> + NumOps,
     {
-        -self.cross_r(rhs)
+        rhs.cross_r(self)
     }
 }
 
@@ -583,12 +564,11 @@ where
 
         Matrix::from_cols(bp.cols().map(|mut x| {
             // Implementation from Numerical Recipes §2.3
-
             // When ii is set to a positive value,
             // it will become the index of the first nonvanishing element of b
             let mut ii = 0usize;
             for i in 0..N {
-                // forward substitution
+                // forward substitution using L
                 let mut sum = x[i];
                 if ii != 0 {
                     for j in (ii - 1)..i {
@@ -600,7 +580,7 @@ where
                 x[i] = sum;
             }
             for i in (0..N).rev() {
-                // back substitution
+                // back substitution using U
                 let mut sum = x[i];
                 for j in (i + 1)..N {
                     sum = sum - (lu[(i, j)] * x[j]);
