@@ -11,8 +11,7 @@ use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign,
 
 /// A 2D array of values which can be operated upon.
 ///
-/// Matrices have a fixed size known at compile time, and must be made up of types that implement
-/// the [Scalar] trait.
+/// Matrices have a fixed size known at compile time
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Matrix<T, const M: usize, const N: usize>
 where
