@@ -3,6 +3,7 @@ extern crate core;
 pub mod index;
 mod macros;
 mod matrix;
+pub mod solve;
 mod util;
 
-pub use matrix::{LUSolve, Matrix, Vector};
+pub use matrix::{Matrix, Vector};

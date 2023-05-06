@@ -7,7 +7,8 @@ use num_traits::real::Real;
 use num_traits::Zero;
 use std::fmt::Debug;
 use std::iter::{zip, Product, Sum};
-use vector_victor::{LUSolve, Matrix, Vector};
+use vector_victor::solve::{LUDecomp, LUSolve};
+use vector_victor::{Matrix, Vector};
 
 #[parameterize(S = (f32, f64), M = [1,2,3,4])]
 #[test]
@@ -18,13 +19,13 @@ fn test_lu_identity<S: Default + Approx + Real + Debug + Product + Sum, const M:
     let i = Matrix::<S, M, M>::identity();
     let ones = Vector::<S, M>::fill(S::one());
     let decomp = i.lu().expect("Singular matrix encountered");
-    let (lu, idx, d) = decomp;
+    let LUDecomp { lu, idx, parity } = decomp;
     assert_eq!(lu, i, "Incorrect LU decomposition");
     assert!(
         (0..M).eq(idx.elements().cloned()),
         "Incorrect permutation matrix",
     );
-    assert_approx!(d, S::one(), "Incorrect permutation parity");
+    assert_approx!(parity, S::one(), "Incorrect permutation parity");
 
     // Check determinant calculation which uses LU decomposition
     assert_approx!(
@@ -76,14 +77,13 @@ fn test_lu_singular<S: Default + Real + Debug + Product + Sum, const M: usize>()
 fn test_lu_2x2() {
     let a = Matrix::new([[1.0, 2.0], [3.0, 0.0]]);
     let decomp = a.lu().expect("Singular matrix encountered");
-    let (_lu, idx, _d) = decomp;
     // the decomposition is non-unique, due to the combination of lu and idx.
     // Instead of checking the exact value, we only check the results.
     // Also check if they produce the same results with both methods, since the
     // Matrix<> methods use shortcuts the decomposition methods don't
 
     let (l, u) = decomp.separate();
-    assert_approx!(l.mmul(&u), a.permute_rows(&idx));
+    assert_approx!(l.mmul(&u), a.permute_rows(&decomp.idx));
 
     assert_approx!(a.det(), -6.0);
     assert_approx!(a.det(), decomp.det());
@@ -100,10 +100,9 @@ fn test_lu_2x2() {
 fn test_lu_3x3() {
     let a = Matrix::new([[1.0, -5.0, 8.0], [1.0, -2.0, 1.0], [2.0, -1.0, -4.0]]);
     let decomp = a.lu().expect("Singular matrix encountered");
-    let (_lu, idx, _d) = decomp;
 
     let (l, u) = decomp.separate();
-    assert_approx!(l.mmul(&u), a.permute_rows(&idx));
+    assert_approx!(l.mmul(&u), a.permute_rows(&decomp.idx));
 
     assert_approx!(a.det(), 3.0);
     assert_approx!(a.det(), decomp.det());
