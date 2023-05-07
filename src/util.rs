@@ -1,4 +1,4 @@
-use num_traits::{Num, NumOps, One, Zero};
+use num_traits::{Num, One, Zero};
 use std::ops::Div;
 
 pub fn checked_div<L: Num + Div<R, Output = T>, R: Num + Zero, T>(num: L, den: R) -> Option<T> {

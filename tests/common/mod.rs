@@ -29,10 +29,6 @@ impl<T: Copy + Approx, const M: usize, const N: usize> Approx for Matrix<T, M, N
     }
 }
 
-pub fn approx<T: Approx>(left: &T, right: &T) -> bool {
-    T::approx(left, right)
-}
-
 macro_rules! assert_approx {
     ($left:expr, $right:expr $(,)?) => {
         match (&$left, &$right) {

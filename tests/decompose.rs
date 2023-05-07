@@ -6,8 +6,8 @@ use generic_parameterize::parameterize;
 use num_traits::real::Real;
 use num_traits::Zero;
 use std::fmt::Debug;
-use std::iter::{zip, Product, Sum};
-use vector_victor::solve::{LUDecomp, LUSolve};
+use std::iter::{Product, Sum};
+use vector_victor::decompose::{LUDecomposable, LUDecomposition};
 use vector_victor::{Matrix, Vector};
 
 #[parameterize(S = (f32, f64), M = [1,2,3,4])]
@@ -19,7 +19,7 @@ fn test_lu_identity<S: Default + Approx + Real + Debug + Product + Sum, const M:
     let i = Matrix::<S, M, M>::identity();
     let ones = Vector::<S, M>::fill(S::one());
     let decomp = i.lu().expect("Singular matrix encountered");
-    let LUDecomp { lu, idx, parity } = decomp;
+    let LUDecomposition { lu, idx, parity } = decomp;
     assert_eq!(lu, i, "Incorrect LU decomposition");
     assert!(
         (0..M).eq(idx.elements().cloned()),

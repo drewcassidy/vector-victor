@@ -1,13 +1,10 @@
 use crate::impl_matrix_op;
 use crate::index::Index2D;
-use crate::util::checked_inv;
 
-use num_traits::real::Real;
 use num_traits::{Num, NumOps, One, Zero};
 use std::fmt::Debug;
 use std::iter::{zip, Flatten, Product, Sum};
 
-use crate::solve::{LUDecomp, LUSolve};
 use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg};
 
 /// A 2D array of values which can be operated upon.
@@ -398,55 +395,6 @@ impl<T: Copy, const N: usize> Matrix<T, N, N> {
     #[must_use]
     pub fn subdiagonals<'s>(&'s self) -> impl Iterator<Item = T> + 's {
         (0..N - 1).map(|n| self[(n, n + 1)])
-    }
-}
-
-impl<T, const N: usize> LUSolve<T, N> for Matrix<T, N, N>
-where
-    T: Copy + Default + Real + Sum + Product,
-{
-    fn lu(&self) -> Option<LUDecomp<T, N>> {
-        LUDecomp::decompose(self)
-    }
-
-    fn inverse(&self) -> Option<Matrix<T, N, N>> {
-        match N {
-            1 => Some(Self::fill(checked_inv(self[0])?)),
-            2 => {
-                let mut result = Self::default();
-                result[(0, 0)] = self[(1, 1)];
-                result[(1, 1)] = self[(0, 0)];
-                result[(1, 0)] = -self[(1, 0)];
-                result[(0, 1)] = -self[(0, 1)];
-                Some(result * checked_inv(self.det())?)
-            }
-            _ => Some(self.lu()?.inverse()),
-        }
-    }
-
-    fn det(&self) -> T {
-        match N {
-            1 => self[0],
-            2 => (self[(0, 0)] * self[(1, 1)]) - (self[(0, 1)] * self[(1, 0)]),
-            3 => {
-                // use rule of Sarrus
-                (0..N) // starting column
-                    .map(|i| {
-                        let dn = (0..N)
-                            .map(|j| -> T { self[(j, (j + i) % N)] })
-                            .product::<T>();
-                        let up = (0..N)
-                            .map(|j| -> T { self[(N - j - 1, (j + i) % N)] })
-                            .product::<T>();
-                        dn - up
-                    })
-                    .sum::<T>()
-            }
-            _ => {
-                // use LU decomposition
-                self.lu().map_or(T::zero(), |lu| lu.det())
-            }
-        }
     }
 }
 

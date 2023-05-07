@@ -1,14 +1,10 @@
 #[macro_use]
 mod common;
 
-use common::Approx;
 use generic_parameterize::parameterize;
-use num_traits::real::Real;
-use num_traits::Zero;
 use std::fmt::Debug;
-use std::iter::{zip, Product, Sum};
 use std::ops;
-use vector_victor::{Matrix, Vector};
+use vector_victor::Matrix;
 
 #[parameterize(S = (i32, f32, f64, u32), M = [1,4], N = [1,4])]
 #[test]

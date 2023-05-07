@@ -2,18 +2,16 @@ use crate::util::checked_inv;
 use crate::Matrix;
 use crate::Vector;
 use num_traits::real::Real;
-use num_traits::{One, Zero};
 use std::iter::{Product, Sum};
-use std::ops::Index;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct LUDecomp<T: Copy, const N: usize> {
+pub struct LUDecomposition<T: Copy, const N: usize> {
     pub lu: Matrix<T, N, N>,
     pub idx: Vector<usize, N>,
     pub parity: T,
 }
 
-impl<T: Copy + Default, const N: usize> LUDecomp<T, N>
+impl<T: Copy + Default, const N: usize> LUDecomposition<T, N>
 where
     T: Real + Default + Sum + Product,
 {
@@ -133,12 +131,12 @@ where
     }
 }
 
-pub trait LUSolve<T, const N: usize>
+pub trait LUDecomposable<T, const N: usize>
 where
     T: Copy + Default + Real + Product + Sum,
 {
     #[must_use]
-    fn lu(&self) -> Option<LUDecomp<T, N>>;
+    fn lu(&self) -> Option<LUDecomposition<T, N>>;
 
     #[must_use]
     fn inverse(&self) -> Option<Matrix<T, N, N>>;
@@ -147,6 +145,57 @@ where
     fn det(&self) -> T;
 
     #[must_use]
+    fn solve<const M: usize>(&self, b: &Matrix<T, N, M>) -> Option<Matrix<T, N, M>>;
+}
+
+impl<T, const N: usize> LUDecomposable<T, N> for Matrix<T, N, N>
+where
+    T: Copy + Default + Real + Sum + Product,
+{
+    fn lu(&self) -> Option<LUDecomposition<T, N>> {
+        LUDecomposition::decompose(self)
+    }
+
+    fn inverse(&self) -> Option<Matrix<T, N, N>> {
+        match N {
+            1 => Some(Self::fill(checked_inv(self[0])?)),
+            2 => {
+                let mut result = Self::default();
+                result[(0, 0)] = self[(1, 1)];
+                result[(1, 1)] = self[(0, 0)];
+                result[(1, 0)] = -self[(1, 0)];
+                result[(0, 1)] = -self[(0, 1)];
+                Some(result * checked_inv(self.det())?)
+            }
+            _ => Some(self.lu()?.inverse()),
+        }
+    }
+
+    fn det(&self) -> T {
+        match N {
+            1 => self[0],
+            2 => (self[(0, 0)] * self[(1, 1)]) - (self[(0, 1)] * self[(1, 0)]),
+            3 => {
+                // use rule of Sarrus
+                (0..N) // starting column
+                    .map(|i| {
+                        let dn = (0..N)
+                            .map(|j| -> T { self[(j, (j + i) % N)] })
+                            .product::<T>();
+                        let up = (0..N)
+                            .map(|j| -> T { self[(N - j - 1, (j + i) % N)] })
+                            .product::<T>();
+                        dn - up
+                    })
+                    .sum::<T>()
+            }
+            _ => {
+                // use LU decomposition
+                self.lu().map_or(T::zero(), |lu| lu.det())
+            }
+        }
+    }
+
     fn solve<const M: usize>(&self, b: &Matrix<T, N, M>) -> Option<Matrix<T, N, M>> {
         Some(self.lu()?.solve(b))
     }
