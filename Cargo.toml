@@ -9,3 +9,9 @@ edition = "2021"
 generic_parameterize = "0.1.0"
 itertools = "0.10.5"
 num-traits = "0.2.15"
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+    "--html-in-header",
+    "doc/mathjax.html",
+]
