@@ -1,7 +1,6 @@
 use crate::util::checked_inv;
 use crate::{Matrix, Vector};
 use num_traits::real::Real;
-use num_traits::One;
 use std::iter::{Product, Sum};
 use std::ops::{Mul, Neg, Not};
 
@@ -15,14 +14,14 @@ pub enum Parity {
 
 impl<T> Mul<T> for Parity
 where
-    T: Neg<Output = T> + One,
+    T: Neg<Output = T>,
 {
     type Output = T;
 
     fn mul(self, rhs: T) -> Self::Output {
-        rhs * match self {
-            Parity::Even => T::one(),
-            Parity::Odd => -T::one(),
+        match self {
+            Parity::Even => rhs,
+            Parity::Odd => -rhs,
         }
     }
 }
@@ -205,7 +204,7 @@ where
     #[must_use]
     fn det(&self) -> T;
 
-    /// Solve for $x$ in $M xx x = b$, where $M$ is the original matrix this is a decomposition of.
+    /// Solve for $x$ in $M xx x = b$
     ///
     /// ```
     /// # use vector_victor::decompose::LUDecomposable;
@@ -220,7 +219,7 @@ where
     /// ```
     ///
     /// $x$ does not need to be a column-vector, it can also be a 2D matrix. For example,
-    /// the following is another way to calculate the [`inverse`] by solving for the identity matrix $I$.
+    /// the following is another way to calculate the [inverse](LUDecomposable::inverse()) by solving for the identity matrix $I$.
     ///
     /// ```
     /// # use vector_victor::decompose::LUDecomposable;
