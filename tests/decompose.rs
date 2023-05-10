@@ -7,6 +7,7 @@ use num_traits::real::Real;
 use num_traits::Zero;
 use std::fmt::Debug;
 use std::iter::{Product, Sum};
+use vector_victor::decompose::Parity::Even;
 use vector_victor::decompose::{LUDecomposable, LUDecomposition};
 use vector_victor::{Matrix, Vector};
 
@@ -25,7 +26,7 @@ fn test_lu_identity<S: Default + Approx + Real + Debug + Product + Sum, const M:
         (0..M).eq(idx.elements().cloned()),
         "Incorrect permutation matrix",
     );
-    assert_approx!(parity, S::one(), "Incorrect permutation parity");
+    assert_eq!(parity, Even, "Incorrect permutation parity");
 
     // Check determinant calculation which uses LU decomposition
     assert_approx!(
