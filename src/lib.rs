@@ -2,7 +2,6 @@ extern crate core;
 
 pub mod decompose;
 pub mod index;
-mod macros;
 mod matrix;
 mod util;
 

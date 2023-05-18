@@ -1,11 +1,12 @@
-use crate::impl_matrix_op;
 use crate::index::Index2D;
 
-use num_traits::{Num, NumOps, One, Zero};
+use num_traits::{NumOps, One, Zero};
 use std::fmt::Debug;
 use std::iter::{zip, Flatten, Product, Sum};
 
 use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg};
+
+pub mod ops;
 
 /// A 2D array of values which can be operated upon.
 ///
@@ -529,16 +530,3 @@ where
         iter.fold(Self::one(), Self::mul)
     }
 }
-
-impl_matrix_op!(neg);
-impl_matrix_op!(!);
-impl_matrix_op!(+);
-impl_matrix_op!(-);
-impl_matrix_op!(*);
-impl_matrix_op!(/);
-impl_matrix_op!(%);
-impl_matrix_op!(&);
-impl_matrix_op!(|);
-impl_matrix_op!(^);
-impl_matrix_op!(<<);
-impl_matrix_op!(>>);
