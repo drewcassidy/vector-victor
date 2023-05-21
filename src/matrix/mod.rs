@@ -1,4 +1,4 @@
-use crate::index::Index2D;
+use index::Index2D;
 
 use num_traits::{NumOps, One, Zero};
 use std::fmt::Debug;
@@ -7,6 +7,7 @@ use std::iter::{zip, Flatten, Product, Sum};
 use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Mul, MulAssign, Neg};
 
 pub mod ops;
+mod index;
 
 /// A 2D array of values which can be operated upon.
 ///
