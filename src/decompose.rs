@@ -1,6 +1,7 @@
 use crate::util::checked_inv;
 use crate::{Matrix, Vector};
 use num_traits::real::Real;
+use num_traits::Signed;
 use std::iter::{Product, Sum};
 use std::ops::{Mul, Neg, Not};
 
@@ -37,7 +38,7 @@ impl Not for Parity {
     }
 }
 
-/// The result of the [LU decomposition](LUDecomposable::lu) of a matrix.
+/// The result of the [LU decomposition](LUDecompose::lu) of a matrix.
 ///
 /// This struct provides a convenient way to reuse one LU decomposition to solve multiple
 /// matrix equations. You likely do not need to worry about its contents.
@@ -46,26 +47,26 @@ impl Not for Parity {
 /// on wikipedia for more information
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct LUDecomposition<T: Copy, const N: usize> {
-    /// The $L$ and $U$ matrices combined into one
+    /// The $bbL$ and $bbU$ matrices combined into one
     ///
     /// for example if
     ///
-    /// $ U = [[u_{11}, u_{12}, cdots,  u_{1n} ],
-    ///        [0,      u_{22}, cdots,  u_{2n} ],
-    ///        [vdots,  vdots,  ddots,  vdots  ],
-    ///        [0,      0,      cdots,  u_{mn} ]] $
+    /// $ bbU = [[u_{11}, u_{12}, cdots,  u_{1n} ],
+    ///          [0,      u_{22}, cdots,  u_{2n} ],
+    ///          [vdots,  vdots,  ddots,  vdots  ],
+    ///          [0,      0,      cdots,  u_{mn} ]] $
     /// and
-    /// $ L = [[1,      0,      cdots,  0      ],
-    ///        [l_{21}, 1,      cdots,  0      ],
-    ///        [vdots,  vdots,  ddots,  vdots  ],
-    ///        [l_{m1}, l_{m2}, cdots,  1      ]] $,
+    /// $ bbL = [[1,      0,      cdots,  0      ],
+    ///          [l_{21}, 1,      cdots,  0      ],
+    ///          [vdots,  vdots,  ddots,  vdots  ],
+    ///          [l_{m1}, l_{m2}, cdots,  1      ]] $,
     /// then
-    /// $ LU = [[u_{11}, u_{12}, cdots,  u_{1n} ],
-    ///         [l_{21}, u_{22}, cdots,  u_{2n} ],
-    ///         [vdots,  vdots,  ddots,  vdots  ],
-    ///         [l_{m1}, l_{m2}, cdots,  u_{mn} ]] $
+    /// $ bb{LU} = [[u_{11}, u_{12}, cdots,  u_{1n} ],
+    ///             [l_{21}, u_{22}, cdots,  u_{2n} ],
+    ///             [vdots,  vdots,  ddots,  vdots  ],
+    ///             [l_{m1}, l_{m2}, cdots,  u_{mn} ]] $
     ///
-    /// note that the diagonals of the $L$ matrix are always 1, so no information is lost
+    /// note that the diagonals of the $bbL$ matrix are always 1, so no information is lost
     pub lu: Matrix<T, N, N>,
 
     /// The indices of the permutation matrix $P$, such that $PxxA$ = $LxxU$
@@ -79,13 +80,10 @@ pub struct LUDecomposition<T: Copy, const N: usize> {
     pub parity: Parity,
 }
 
-impl<T: Copy + Default, const N: usize> LUDecomposition<T, N>
-where
-    T: Real + Default + Sum + Product,
-{
-    /// Solve for $x$ in $M xx x = b$, where $M$ is the original matrix this is a decomposition of.
+impl<T: Copy + Default + Real, const N: usize> LUDecomposition<T, N> {
+    /// Solve for $x$ in $bbM xx x = b$, where $bbM$ is the original matrix this is a decomposition of.
     ///
-    /// This is equivalent to [`LUDecomposable::solve`] while allowing the LU decomposition
+    /// This is equivalent to [`LUDecompose::solve`] while allowing the LU decomposition
     /// to be reused
     #[must_use]
     pub fn solve<const M: usize>(&self, b: &Matrix<T, N, M>) -> Matrix<T, N, M> {
@@ -123,17 +121,17 @@ where
     /// Calculate the determinant $|M|$ of the matrix $M$.
     /// If the matrix is singular, the determinant is 0.
     ///
-    /// This is equivalent to [`LUDecomposable::det`] while allowing the LU decomposition
+    /// This is equivalent to [`LUDecompose::det`] while allowing the LU decomposition
     /// to be reused
     pub fn det(&self) -> T {
-        self.parity * self.lu.diagonals().product()
+        self.parity * self.lu.diagonals().fold(T::one(), T::mul)
     }
 
-    /// Calculate the inverse of the original matrix, such that $MxxM^{-1} = I$
+    /// Calculate the inverse of the original matrix, such that $bbM xx bbM^{-1} = bbI$
     ///
-    /// This is equivalent to [`Matrix::inverse`] while allowing the LU decomposition to be reused
+    /// This is equivalent to [`Matrix::inv`] while allowing the LU decomposition to be reused
     #[must_use]
-    pub fn inverse(&self) -> Matrix<T, N, N> {
+    pub fn inv(&self) -> Matrix<T, N, N> {
         return self.solve(&Matrix::<T, N, N>::identity());
     }
 
@@ -160,17 +158,14 @@ where
 ///
 /// See [LU decomposition](https://en.wikipedia.org/wiki/LU_decomposition)
 /// on wikipedia for more information
-pub trait LUDecomposable<T, const N: usize>
-where
-    T: Copy + Default + Real + Product + Sum,
-{
+pub trait LUDecompose<T: Copy, const N: usize> {
     /// return this matrix's [`LUDecomposition`], or [`None`] if the matrix is singular.
     /// This can be used to solve for multiple results
     ///
     /// ```
-    /// # use vector_victor::decompose::LUDecomposable;
+    /// # use vector_victor::decompose::LUDecompose;
     /// # use vector_victor::{Matrix, Vector};
-    /// let m = Matrix::new([[1.0,3.0],[2.0,4.0]]);
+    /// let m = Matrix::mat([[1.0,3.0],[2.0,4.0]]);
     /// let lu = m.lu().expect("Cannot decompose a signular matrix");
     ///
     /// let b = Vector::vec([7.0,10.0]);
@@ -183,34 +178,35 @@ where
     #[must_use]
     fn lu(&self) -> Option<LUDecomposition<T, N>>;
 
-    /// Calculate the inverse of the matrix, such that $MxxM^{-1} = I$, or [`None`] if the matrix is singular.
+    /// Calculate the inverse of the matrix, such that $bbMxxbbM^{-1} = bbI$,
+    /// or [`None`] if the matrix is singular.
     ///
     /// ```
-    /// # use vector_victor::decompose::LUDecomposable;
+    /// # use vector_victor::decompose::LUDecompose;
     /// # use vector_victor::Matrix;
-    /// let m = Matrix::new([[1.0,3.0],[2.0,4.0]]);
-    /// let mi = m.inverse().expect("Cannot invert a singular matrix");
+    /// let m = Matrix::mat([[1.0,3.0],[2.0,4.0]]);
+    /// let mi = m.inv().expect("Cannot invert a singular matrix");
     ///
-    /// assert_eq!(mi, Matrix::new([[-2.0, 1.5],[1.0, -0.5]]), "unexpected inverse matrix");
+    /// assert_eq!(mi, Matrix::mat([[-2.0, 1.5],[1.0, -0.5]]), "unexpected inverse matrix");
     ///
     /// // multiplying a matrix by its inverse yields the identity matrix
     /// assert_eq!(m.mmul(&mi), Matrix::identity())
     /// ```
     #[must_use]
-    fn inverse(&self) -> Option<Matrix<T, N, N>>;
+    fn inv(&self) -> Option<Matrix<T, N, N>>;
 
     /// Calculate the determinant $|M|$ of the matrix $M$.
     /// If the matrix is singular, the determinant is 0
     #[must_use]
     fn det(&self) -> T;
 
-    /// Solve for $x$ in $M xx x = b$
+    /// Solve for $x$ in $bbM xx x = b$
     ///
     /// ```
-    /// # use vector_victor::decompose::LUDecomposable;
+    /// # use vector_victor::decompose::LUDecompose;
     /// # use vector_victor::{Matrix, Vector};
     ///
-    /// let m = Matrix::new([[1.0,3.0],[2.0,4.0]]);
+    /// let m = Matrix::mat([[1.0,3.0],[2.0,4.0]]);
     /// let b = Vector::vec([7.0,10.0]);
     /// let x = m.solve(&b).expect("Cannot solve a singular matrix");
     ///
@@ -219,26 +215,26 @@ where
     /// ```
     ///
     /// $x$ does not need to be a column-vector, it can also be a 2D matrix. For example,
-    /// the following is another way to calculate the [inverse](LUDecomposable::inverse()) by solving for the identity matrix $I$.
+    /// the following is another way to calculate the [inverse](LUDecompose::inv()) by solving for the identity matrix $I$.
     ///
     /// ```
-    /// # use vector_victor::decompose::LUDecomposable;
+    /// # use vector_victor::decompose::LUDecompose;
     /// # use vector_victor::{Matrix, Vector};
     ///
-    /// let m = Matrix::new([[1.0,3.0],[2.0,4.0]]);
+    /// let m = Matrix::mat([[1.0,3.0],[2.0,4.0]]);
     /// let i = Matrix::<f64,2,2>::identity();
     /// let mi = m.solve(&i).expect("Cannot solve a singular matrix");
     ///
-    /// assert_eq!(mi, Matrix::new([[-2.0, 1.5],[1.0, -0.5]]));
+    /// assert_eq!(mi, Matrix::mat([[-2.0, 1.5],[1.0, -0.5]]));
     /// assert_eq!(m.mmul(&mi), i, "M x M^-1 = I");
     /// ```
     #[must_use]
     fn solve<const M: usize>(&self, b: &Matrix<T, N, M>) -> Option<Matrix<T, N, M>>;
 }
 
-impl<T, const N: usize> LUDecomposable<T, N> for Matrix<T, N, N>
+impl<T, const N: usize> LUDecompose<T, N> for Matrix<T, N, N>
 where
-    T: Copy + Default + Real + Sum + Product,
+    T: Copy + Default + Real + Sum + Product + Signed,
 {
     fn lu(&self) -> Option<LUDecomposition<T, N>> {
         // Implementation from Numerical Recipes §2.3
@@ -300,7 +296,7 @@ where
         return Some(LUDecomposition { lu, idx, parity });
     }
 
-    fn inverse(&self) -> Option<Matrix<T, N, N>> {
+    fn inv(&self) -> Option<Matrix<T, N, N>> {
         match N {
             1 => Some(Self::fill(checked_inv(self[0])?)),
             2 => {
@@ -311,7 +307,7 @@ where
                 result[(0, 1)] = -self[(0, 1)];
                 Some(result * checked_inv(self.det())?)
             }
-            _ => Some(self.lu()?.inverse()),
+            _ => Some(self.lu()?.inv()),
         }
     }
 
