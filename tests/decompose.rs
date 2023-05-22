@@ -4,9 +4,8 @@ mod common;
 use common::Approx;
 use generic_parameterize::parameterize;
 use num_traits::real::Real;
-use num_traits::{Float, One, Signed, Zero};
+use num_traits::Zero;
 use std::fmt::Debug;
-use std::iter::{Product, Sum};
 use vector_victor::decompose::{LUDecompose, LUDecomposition, Parity};
 use vector_victor::{Matrix, Vector};
 

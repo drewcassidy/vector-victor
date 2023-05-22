@@ -69,7 +69,7 @@ pub struct LUDecomposition<T: Copy, const N: usize> {
     /// note that the diagonals of the $bbL$ matrix are always 1, so no information is lost
     pub lu: Matrix<T, N, N>,
 
-    /// The indices of the permutation matrix $P$, such that $PxxA$ = $LxxU$
+    /// The indices of the permutation matrix $bbP$, such that $bbP xx bbA$ = $bbL xx bbU$
     ///
     /// The permutation matrix rearranges the rows of the original matrix in order to produce
     /// the LU decomposition. This makes calculation simpler, but makes the result

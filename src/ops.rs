@@ -1,4 +1,4 @@
-use crate::matrix::Matrix;
+use crate::Matrix;
 use num_traits::Num;
 
 // borrowed from the auto_ops crate
