@@ -6,24 +6,25 @@ use std::ops::{Add, Mul};
 
 /// Operations for column vectors
 impl<T: Copy, const N: usize> Vector<T, N> {
-    /// Compute the dot product of two vectors, otherwise known as the scalar product.
-    /// This is the sum of the elementwise product, or in math terms
-    ///
-    /// $vec(a) * vec(b) = sum_(i=1)^n a_i b_i = a_1 b_1 + a_2 b_2 + ... + a_n b_n$
-    ///
-    /// for example, $[[1],[2],[3]] * [[4],[5],[6]] = (1 * 4) + (2 * 5) + (3 * 6) = 32$
-    ///
-    /// For vectors in euclidean space, this has the property that it is equal to the magnitudes of
-    /// the vectors times the cosine of the angle between them.
-    ///
-    /// $vec(a) * vec(b) = |vec(a)| |vec(b)| cos(theta)$
-    ///
-    /// this also gives it the special property that the dot product of a vector and itself is the
-    /// square of its magnitude. You may recognize the 2D version as the
-    /// [pythagorean theorem](https://en.wikipedia.org/wiki/Pythagorean_theorem).
-    ///
-    /// see [dot product](https://en.wikipedia.org/wiki/Dot_product) on Wikipedia for more
-    /// information.
+    /** Compute the dot product of two vectors, otherwise known as the scalar product.
+
+    This is the sum of the elementwise product, or in math terms
+
+    $vec(a) * vec(b) = sum_(i=1)^n a_i b_i = a_1 b_1 + a_2 b_2 + ... + a_n b_n$
+
+    for example, $\[\[1],\[2],\[3]] * \[\[4],\[5],\[6]] = (1 * 4) + (2 * 5) + (3 * 6) = 32$
+
+    For vectors in euclidean space, this has the property that it is equal to the magnitudes of
+    the vectors times the cosine of the angle between them.
+
+    $vec(a) * vec(b) = |vec(a)| |vec(b)| cos(theta)$
+
+    this also gives it the special property that the dot product of a vector and itself is the
+    square of its magnitude. You may recognize the 2D version as the
+    [pythagorean theorem](https://en.wikipedia.org/wiki/Pythagorean_theorem).
+
+    see [dot product](https://en.wikipedia.org/wiki/Dot_product) on Wikipedia for more
+    information. */
     pub fn dot<R>(&self, rhs: &R) -> T
     where
         for<'s> &'s Self: Mul<&'s R, Output = Self>,
