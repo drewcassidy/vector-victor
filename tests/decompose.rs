@@ -1,3 +1,5 @@
+//! Data structures and traits for decomposing and solving matrices
+
 #[macro_use]
 mod common;
 

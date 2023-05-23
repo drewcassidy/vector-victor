@@ -124,7 +124,7 @@ impl<T: Copy + Default + Real, const N: usize> LUDecomposition<T, N> {
     /// This is equivalent to [`LUDecompose::det`] while allowing the LU decomposition
     /// to be reused
     pub fn det(&self) -> T {
-        self.parity * self.lu.diagonals().fold(T::one(), T::mul)
+        self.parity * self.lu.diagonals().fold(T::one(), |l, &r| l * r)
     }
 
     /// Calculate the inverse of the original matrix, such that $bbM xx bbM^{-1} = bbI$

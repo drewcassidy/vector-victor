@@ -19,7 +19,7 @@ use std::fmt::Debug;
 /// assert_eq!(m[7], 8);
 ///
 /// let v = Vector::vec([4,8,15,16,23,42]);
-/// assert_eq!(m[2], 15); // just like a std::vec
+/// assert_eq!(v[2], 15); // just like a std::vec
 /// ```
 ///
 /// Indexing by a `(usize,usize)` indexes by row and column
