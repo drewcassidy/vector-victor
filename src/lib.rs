@@ -12,6 +12,7 @@ pub mod index;
 mod math;
 mod ops;
 
+mod swizzle;
 mod util;
 
 /** A 2D array of values which can be operated upon.
@@ -522,8 +523,10 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
 
     # Arguments
 
-    * `ms`: a [`Vector`] of [`usize`] of length M. Each entry is the index of the row that will
+    * `ms`: a [`Vector`] of [`usize`] of length P. Each entry is the index of the row that will
     appear in the result
+
+    Returns: a P×N matrix
 
     # Panics
 
@@ -543,29 +546,31 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
                                       [7, 8, 9]]))
     ``` */
     #[must_use]
-    pub fn permute_rows(&self, ms: &Vector<usize, M>) -> Self
+    pub fn permute_rows<const P: usize>(&self, ms: &Vector<usize, P>) -> Matrix<T, P, N>
     where
         T: Default,
     {
-        Self::from_rows(ms.elements().map(|&m| self.row(m)))
+        Matrix::<T, P, N>::from_rows(ms.elements().map(|&m| self.row(m)))
     }
 
     /** Apply a permutation matrix to the columns of a matrix
 
     # Arguments
 
-    * `ns`: a [`Vector`] of [`usize`] of length N. Each entry is the index of the column that will
+    * `ns`: a [`Vector`] of [`usize`] of length P. Each entry is the index of the column that will
     appear in the result
+
+    Returns: a P×N matrix
 
     # Panics
 
     Panics if any of the column indices in `ns` is out of bounds */
     #[must_use]
-    pub fn permute_cols(&self, ns: &Vector<usize, N>) -> Self
+    pub fn permute_cols<const P: usize>(&self, ns: &Vector<usize, P>) -> Matrix<T, M, P>
     where
         T: Default,
     {
-        Self::from_cols(ns.elements().map(|&n| self.col(n)))
+        Matrix::<T, M, P>::from_cols(ns.elements().map(|&n| self.col(n)))
     }
 
     /** Returns the transpose $M^T$ of the matrix, or the matrix flipped across its diagonal.
