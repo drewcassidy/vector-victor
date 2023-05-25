@@ -29,6 +29,7 @@ impl<T: Copy + Approx, const M: usize, const N: usize> Approx for Matrix<T, M, N
     }
 }
 
+#[macro_export]
 macro_rules! assert_approx {
     ($left:expr, $right:expr $(,)?) => {
         match (&$left, &$right) {
