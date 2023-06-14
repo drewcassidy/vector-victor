@@ -1,5 +1,7 @@
-use num_traits::Float;
 use std::iter::zip;
+
+use num_traits::{Float, NumCast, NumOps};
+
 use vector_victor::Matrix;
 
 pub trait Approx: PartialEq {
@@ -9,7 +11,7 @@ pub trait Approx: PartialEq {
 }
 
 macro_rules! multi_impl { ($name:ident for $($t:ty),*) => ($( impl $name for $t {} )*) }
-multi_impl!(Approx for i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+multi_impl!(Approx for i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, bool);
 
 impl Approx for f32 {
     fn approx(left: &f32, right: &f32) -> bool {
@@ -29,6 +31,10 @@ impl<T: Copy + Approx, const M: usize, const N: usize> Approx for Matrix<T, M, N
     }
 }
 
+pub fn approx<T: Approx>(left: &T, right: &T) -> bool {
+    T::approx(left, right)
+}
+
 #[macro_export]
 macro_rules! assert_approx {
     ($left:expr, $right:expr $(,)?) => {
@@ -41,14 +47,20 @@ macro_rules! assert_approx {
     ($left:expr, $right:expr, $($arg:tt)+) => {
         match (&$left, &$right) {
             (left_val, right_val) => {
-                pub fn approx<T: Approx>(left: &T, right: &T) -> bool {
-                    T::approx(left, right)
-                }
 
-                if !approx(left_val, right_val){
+
+                if !common::approx(left_val, right_val){
                     assert_eq!(left_val, right_val, $($arg)+) // done this way to get nice errors
                 }
             }
         }
     };
+}
+
+pub fn step<T, U>(start: U, step: U) -> impl Iterator<Item = T>
+where
+    T: NumCast,
+    U: NumOps + NumCast + Copy,
+{
+    (0usize..).map_while(move |i| T::from((U::from(i)? + start) * step))
 }

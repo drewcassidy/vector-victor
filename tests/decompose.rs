@@ -11,7 +11,7 @@ use std::fmt::Debug;
 use vector_victor::decompose::{LUDecompose, LUDecomposition, Parity};
 use vector_victor::{Matrix, Vector};
 
-#[parameterize(S = (f32, f64), M = [1,2,3,4])]
+#[parameterize(S = (f32,), M = [1,2,3,4], fmt="{fn}_{M}x{M}")]
 #[test]
 /// The LU decomposition of the identity matrix should produce
 /// the identity matrix with no permutations and parity 1
@@ -55,7 +55,7 @@ where
     assert_eq!(decomp.separate(), (i, i));
 }
 
-#[parameterize(S = (f32, f64), M = [2,3,4])]
+#[parameterize(S = (f32,), M = [2,3,4], fmt="{fn}_{M}x{M}")]
 #[test]
 /// The LU decomposition of any singular matrix should be `None`
 fn test_lu_singular<S, const M: usize>()

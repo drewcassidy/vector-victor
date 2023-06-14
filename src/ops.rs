@@ -5,118 +5,88 @@ use num_traits::Num;
 #[doc(hidden)]
 macro_rules! impl_matrix_op {
     (neg) => {
-        _impl_op_m_internal_ex!(Neg, neg);
+        _impl_op_unary_ex!(Neg::neg);
     };
     (!) => {
-        _impl_op_m_internal_ex!(Not, not);
+        _impl_op_unary_ex!(Not::not);
     };
     (+) => {
-        _impl_op_mm_internal_ex!(Add, add);
-        _impl_opassign_mm_internal_ex!(AddAssign, add_assign);
+        _impl_op_binary_ex!(Add::add, AddAssign::add_assign);
     };
     (-) => {
-        _impl_op_mm_internal_ex!(Sub, sub);
-        _impl_opassign_mm_internal_ex!(SubAssign, sub_assign);
+        _impl_op_binary_ex!(Sub::sub, SubAssign::sub_assign);
     };
     (*) => {
-        _impl_op_mm_internal_ex!(Mul, mul);
-        _impl_op_ms_internal_ex!(Mul, mul);
-        _impl_opassign_mm_internal_ex!(MulAssign, mul_assign);
-        _impl_opassign_ms_internal_ex!(MulAssign, mul_assign);
+        _impl_op_binary_ex!(Mul::mul, MulAssign::mul_assign);
     };
     (/) => {
-        _impl_op_mm_internal_ex!(Div, div);
-        _impl_op_ms_internal_ex!(Div, div);
-        _impl_opassign_mm_internal_ex!(DivAssign, div_assign);
-        _impl_opassign_ms_internal_ex!(DivAssign, div_assign);
+        _impl_op_binary_ex!(Div::div, DivAssign::div_assign);
     };
     (%) => {
-        _impl_op_mm_internal_ex!(Rem, rem);
-        _impl_op_ms_internal_ex!(Rem, rem);
-        _impl_opassign_mm_internal_ex!(RemAssign, rem_assign);
-        _impl_opassign_ms_internal_ex!(RemAssign, rem_assign);
+        _impl_op_binary_ex!(Rem::rem, RemAssign::rem_assign);
     };
     (&) => {
-        _impl_op_mm_internal_ex!(BitAnd, bitand);
-        _impl_opassign_mm_internal_ex!(BitAndAssign, bitand_assign);
+        _impl_op_binary_ex!(BitAnd::bitand, BitAndAssign::bitand_assign);
     };
     (|) => {
-        _impl_op_mm_internal_ex!(BitOr, bitor);
-        _impl_opassign_mm_internal_ex!(BitOrAssign, bitor_assign);
+        _impl_op_binary_ex!(BitOr::bitor, BitOrAssign::bitor_assign);
     };
     (^) => {
-        _impl_op_mm_internal_ex!(BitXor, bitxor);
-        _impl_opassign_mm_internal_ex!(BitXorAssign, bitxor_assign);
+        _impl_op_binary_ex!(BitXor::bitxor, BitXorAssign::bitxor_assign);
     };
     (<<) => {
-        _impl_op_ms_internal_ex!(Shl, shl);
-        _impl_opassign_ms_internal_ex!(ShlAssign, shl_assign);
+        _impl_op_binary_ex!(Shl::shl, ShlAssign::shl_assign);
     };
     (>>) => {
-        _impl_op_ms_internal_ex!(Shr, shr);
-        _impl_opassign_ms_internal_ex!(ShrAssign, shr_assign);
+        _impl_op_binary_ex!(Shr::shr, ShrAssign::shr_assign);
     };
 }
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! _impl_op_m_internal_ex {
-    ($ops_trait:ident, $ops_fn:ident) => {
-        _impl_op_m_internal!($ops_trait, $ops_fn, Matrix<L,M,N>, Matrix<L,M,N>);
-        _impl_op_m_internal!($ops_trait, $ops_fn, &Matrix<L,M,N>, Matrix<L,M,N>);
+macro_rules! _impl_op_unary_ex {
+    ($op_trait:ident::$op_fn:ident) => {
+        _impl_op_m_internal!($op_trait, $op_fn, Matrix<L,M,N>, Matrix<L,M,N>);
+        _impl_op_m_internal!($op_trait, $op_fn, &Matrix<L,M,N>, Matrix<L,M,N>);
     }
 }
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! _impl_op_mm_internal_ex {
-    ($ops_trait:ident, $ops_fn:ident) => {
-        _impl_op_mm_internal!($ops_trait, $ops_fn, Matrix<L,M,N>, Matrix<R,M,N>, Matrix<L,M,N>);
-        _impl_op_mm_internal!($ops_trait, $ops_fn, &Matrix<L,M,N>, Matrix<R,M,N>, Matrix<L,M,N>);
-        _impl_op_mm_internal!($ops_trait, $ops_fn, Matrix<L,M,N>, &Matrix<R,M,N>, Matrix<L,M,N>);
-        _impl_op_mm_internal!($ops_trait, $ops_fn, &Matrix<L,M,N>, &Matrix<R,M,N>, Matrix<L,M,N>);
-    }
-}
+macro_rules! _impl_op_binary_ex {
+    ($op_trait:ident::$op_fn:ident, $op_assign_trait:ident::$op_assign_fn:ident) => {
+        _impl_op_mm_internal!($op_trait, $op_fn, Matrix<L,M,N>, Matrix<R,M,N>, Matrix<L,M,N>);
+        _impl_op_mm_internal!($op_trait, $op_fn, &Matrix<L,M,N>, Matrix<R,M,N>, Matrix<L,M,N>);
+        _impl_op_mm_internal!($op_trait, $op_fn, Matrix<L,M,N>, &Matrix<R,M,N>, Matrix<L,M,N>);
+        _impl_op_mm_internal!($op_trait, $op_fn, &Matrix<L,M,N>, &Matrix<R,M,N>, Matrix<L,M,N>);
 
-#[doc(hidden)]
-#[macro_export]
-macro_rules! _impl_opassign_mm_internal_ex {
-    ($ops_trait:ident, $ops_fn:ident) => {
-        _impl_opassign_mm_internal!($ops_trait, $ops_fn, Matrix<L,M,N>, Matrix<R,M,N>, Matrix<L,M,N>);
-        _impl_opassign_mm_internal!($ops_trait, $ops_fn, Matrix<L,M,N>, &Matrix<R,M,N>, Matrix<L,M,N>);
-    }
-}
+        _impl_op_ms_internal!($op_trait, $op_fn, Matrix<L,M,N>, R, Matrix<L,M,N>);
+        _impl_op_ms_internal!($op_trait, $op_fn, &Matrix<L,M,N>, R, Matrix<L,M,N>);
 
-#[doc(hidden)]
-macro_rules! _impl_op_ms_internal_ex {
-    ($ops_trait:ident, $ops_fn:ident) => {
-        _impl_op_ms_internal!($ops_trait, $ops_fn, Matrix<L,M,N>, R, Matrix<L,M,N>);
-        _impl_op_ms_internal!($ops_trait, $ops_fn, &Matrix<L,M,N>, R, Matrix<L,M,N>);
-    }
-}
+        _impl_opassign_mm_internal!($op_assign_trait, $op_assign_fn, Matrix<L,M,N>, Matrix<R,M,N>, Matrix<L,M,N>);
+        _impl_opassign_mm_internal!($op_assign_trait, $op_assign_fn, Matrix<L,M,N>, &Matrix<R,M,N>, Matrix<L,M,N>);
 
-#[doc(hidden)]
-macro_rules! _impl_opassign_ms_internal_ex {
-    ($ops_trait:ident, $ops_fn:ident) => {
-        _impl_opassign_ms_internal!($ops_trait, $ops_fn, Matrix<L,M,N>, R, Matrix<L,M,N>);
+        _impl_opassign_ms_internal!($op_assign_trait, $op_assign_fn, Matrix<L,M,N>, R, Matrix<L,M,N>);
+
     }
 }
 
 #[doc(hidden)]
 macro_rules! _impl_op_m_internal {
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $out:ty) => {
-        impl<L, const M: usize, const N: usize> ::std::ops::$ops_trait for $lhs
+    ($op_trait:ident, $op_fn:ident, $lhs:ty, $out:ty) => {
+        impl<L, const M: usize, const N: usize> ::std::ops::$op_trait for $lhs
         where
-            L: ::std::ops::$ops_trait<Output = L> + Copy,
+            L: ::std::ops::$op_trait<Output = L> + Copy,
         {
             type Output = $out;
 
             #[inline(always)]
-            fn $ops_fn(self) -> Self::Output {
+            fn $op_fn(self) -> Self::Output {
                 let mut result = self.clone();
+                // we arnt using iterators because they dont seem to always vectorize correctly
                 for m in 0..M {
                     for n in 0..N {
-                        result.data[m][n] = self.data[m][n].$ops_fn();
+                        result.data[m][n] = self.data[m][n].$op_fn();
                     }
                 }
                 result
@@ -127,20 +97,20 @@ macro_rules! _impl_op_m_internal {
 
 #[doc(hidden)]
 macro_rules! _impl_op_mm_internal {
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
-        impl<L, R, const M: usize, const N: usize> ::std::ops::$ops_trait<$rhs> for $lhs
+    ($op_trait:ident, $op_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
+        impl<L, R, const M: usize, const N: usize> ::std::ops::$op_trait<$rhs> for $lhs
         where
-            L: ::std::ops::$ops_trait<R, Output = L> + Copy,
+            L: ::std::ops::$op_trait<R, Output = L> + Copy,
             R: Copy,
         {
             type Output = $out;
 
             #[inline(always)]
-            fn $ops_fn(self, other: $rhs) -> Self::Output {
+            fn $op_fn(self, other: $rhs) -> Self::Output {
                 let mut result = self.clone();
                 for m in 0..M {
                     for n in 0..N {
-                        result.data[m][n] = self.data[m][n].$ops_fn(other.data[m][n]);
+                        result.data[m][n] = self.data[m][n].$op_fn(other.data[m][n]);
                     }
                 }
                 result
@@ -151,17 +121,17 @@ macro_rules! _impl_op_mm_internal {
 
 #[doc(hidden)]
 macro_rules! _impl_opassign_mm_internal {
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
-        impl<L, R, const M: usize, const N: usize> ::std::ops::$ops_trait<$rhs> for $lhs
+    ($op_trait:ident, $op_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
+        impl<L, R, const M: usize, const N: usize> ::std::ops::$op_trait<$rhs> for $lhs
         where
-            L: ::std::ops::$ops_trait<R> + Copy,
+            L: ::std::ops::$op_trait<R> + Copy,
             R: Copy,
         {
             #[inline(always)]
-            fn $ops_fn(&mut self, other: $rhs) {
+            fn $op_fn(&mut self, other: $rhs) {
                 for m in 0..M {
                     for n in 0..N {
-                        self.data[m][n].$ops_fn(other.data[m][n]);
+                        self.data[m][n].$op_fn(other.data[m][n]);
                     }
                 }
             }
@@ -171,20 +141,20 @@ macro_rules! _impl_opassign_mm_internal {
 
 #[doc(hidden)]
 macro_rules! _impl_op_ms_internal {
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
-        impl<L, R, const M: usize, const N: usize> ::std::ops::$ops_trait<$rhs> for $lhs
+    ($op_trait:ident, $op_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
+        impl<L, R, const M: usize, const N: usize> ::std::ops::$op_trait<$rhs> for $lhs
         where
-            L: ::std::ops::$ops_trait<R, Output = L> + Copy,
+            L: ::std::ops::$op_trait<R, Output = L> + Copy,
             R: Copy + Num,
         {
             type Output = $out;
 
             #[inline(always)]
-            fn $ops_fn(self, other: $rhs) -> Self::Output {
+            fn $op_fn(self, other: $rhs) -> Self::Output {
                 let mut result = self.clone();
                 for m in 0..M {
                     for n in 0..N {
-                        result.data[m][n] = self.data[m][n].$ops_fn(other);
+                        result.data[m][n] = self.data[m][n].$op_fn(other);
                     }
                 }
                 result
@@ -195,17 +165,17 @@ macro_rules! _impl_op_ms_internal {
 
 #[doc(hidden)]
 macro_rules! _impl_opassign_ms_internal {
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
-        impl<L, R, const M: usize, const N: usize> ::std::ops::$ops_trait<$rhs> for $lhs
+    ($op_trait:ident, $op_fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
+        impl<L, R, const M: usize, const N: usize> ::std::ops::$op_trait<$rhs> for $lhs
         where
-            L: ::std::ops::$ops_trait<R> + Copy,
+            L: ::std::ops::$op_trait<R> + Copy,
             R: Copy + Num,
         {
             #[inline(always)]
-            fn $ops_fn(&mut self, r: $rhs) {
+            fn $op_fn(&mut self, r: $rhs) {
                 for m in 0..M {
                     for n in 0..N {
-                        self.data[m][n].$ops_fn(r);
+                        self.data[m][n].$op_fn(r);
                     }
                 }
             }
