@@ -1,6 +1,6 @@
 [package]
 name = "vector-victor"
-license = "MIT OR Apache-2.0"
+license = "MPL-2.0"
 description = "Yet another linear algebra crate"
 version = "0.1.0"
 edition = "2021"
