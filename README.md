@@ -17,7 +17,6 @@ Vector-Victor does not:
 
 ## Why does this exist? Why not use something else?
 
-[![XKCD 927](https://imgs.xkcd.com/comics/standards_2x.png)](https://xkcd.com/927/)
 I wrote Vector-Victor for myself, to reflect the way I think about matrices and vectors. I didn't want a library that
-overcomplicated things with [Typenums](https://lib.rs/crates/typenum) or multiple backing datastructure options. I did 
+overcomplicated things with [Typenums](https://lib.rs/crates/typenum) or multiple backing datastructure options. I did
 want types that felt familiar to me from when I write shaders or game mods. 
