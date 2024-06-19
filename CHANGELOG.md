@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file
 
-## Unreleased
+## Version 0.1.1 (2023-06-14) - 2024-06-19
 
-initial commit
+### Fixed
+
+- Fixed docs failing to build on docs.rs
+
+
+## Version 0.1.0 (2023-06-14)
+
+Initial Release
