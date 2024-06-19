@@ -4,7 +4,7 @@
 
 extern crate core;
 
-use index::Index2D;
+use index::MatrixIndex;
 use num_traits::{Bounded, One, Zero};
 use std::cmp::min;
 use std::fmt::Debug;
@@ -314,7 +314,7 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
 
     # Arguments
 
-    * `index`: a 1D or 2D index into the matrix. See [Index2D] for more information on matrix indexing.
+    * `index`: a 1D or 2D index into the matrix. See [MatrixIndex] for more information on matrix indexing.
 
     # Examples
 
@@ -335,7 +335,7 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
     ``` */
     #[inline]
     #[must_use]
-    pub fn get(&self, index: impl Index2D) -> Option<&T> {
+    pub fn get(&self, index: impl MatrixIndex) -> Option<&T> {
         let (m, n) = index.to_2d(M, N)?;
         Some(&self.data[m][n])
     }
@@ -348,7 +348,7 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
 
     # Arguments
 
-    * `index`: a 1D or 2D index into the matrix. See [Index2D] for more information
+    * `index`: a 1D or 2D index into the matrix. See [MatrixIndex] for more information
     on matrix indexing.
 
     # Examples
@@ -365,7 +365,7 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
     ``` */
     #[inline]
     #[must_use]
-    pub fn get_mut(&mut self, index: impl Index2D) -> Option<&mut T> {
+    pub fn get_mut(&mut self, index: impl MatrixIndex) -> Option<&mut T> {
         let (m, n) = index.to_2d(M, N)?;
         Some(&mut self.data[m][n])
     }
@@ -602,7 +602,7 @@ impl<T: Copy, const M: usize, const N: usize> Matrix<T, M, N> {
 // Index
 impl<I, T, const M: usize, const N: usize> Index<I> for Matrix<T, M, N>
 where
-    I: Index2D,
+    I: MatrixIndex,
     T: Copy,
 {
     type Output = T;
@@ -619,7 +619,7 @@ where
 // IndexMut
 impl<I, T, const M: usize, const N: usize> IndexMut<I> for Matrix<T, M, N>
 where
-    I: Index2D,
+    I: MatrixIndex,
     T: Copy,
 {
     #[inline(always)]

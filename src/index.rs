@@ -34,7 +34,7 @@ assert_eq!(m[(0,0)], 1);
 assert_eq!(m[(1,1)], 5);
 assert_eq!(m[(2,1)], 8);
 ``` */
-pub trait Index2D: Copy + Debug {
+pub trait MatrixIndex: Copy + Debug {
     /** Convert an index to its 1-D linear interpretation, given the `width` and `height` of the
     matrix being subscripted.
 
@@ -43,7 +43,7 @@ pub trait Index2D: Copy + Debug {
 
     # Examples
     ```
-    # use vector_victor::index::Index2D;
+    # use vector_victor::index::MatrixIndex;
     assert_eq!(
         (1usize,2usize).to_1d(3,3),
         Some(5),
@@ -67,7 +67,7 @@ pub trait Index2D: Copy + Debug {
 
     # Examples
     ```
-    # use vector_victor::index::Index2D;
+    # use vector_victor::index::MatrixIndex;
     assert_eq!(
         5usize.to_2d(3,3),
         Some((1usize,2usize)),
@@ -80,7 +80,7 @@ pub trait Index2D: Copy + Debug {
     fn to_2d(self, height: usize, width: usize) -> Option<(usize, usize)>;
 }
 
-impl Index2D for usize {
+impl MatrixIndex for usize {
     #[inline(always)]
     fn to_2d(self, height: usize, width: usize) -> Option<(usize, usize)> {
         match self < (height * width) {
@@ -90,7 +90,7 @@ impl Index2D for usize {
     }
 }
 
-impl Index2D for (usize, usize) {
+impl MatrixIndex for (usize, usize) {
     #[inline(always)]
     fn to_2d(self, height: usize, width: usize) -> Option<(usize, usize)> {
         match self.0 < height && self.1 < width {
