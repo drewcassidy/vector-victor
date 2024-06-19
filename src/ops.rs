@@ -47,7 +47,6 @@ macro_rules! impl_matrix_op {
 }
 
 #[doc(hidden)]
-#[macro_export]
 macro_rules! _impl_op_unary_ex {
     ($op_trait:ident::$op_fn:ident) => {
         _impl_op_m_internal!($op_trait, $op_fn, Matrix<L,M,N>, Matrix<L,M,N>);
@@ -56,7 +55,6 @@ macro_rules! _impl_op_unary_ex {
 }
 
 #[doc(hidden)]
-#[macro_export]
 macro_rules! _impl_op_binary_ex {
     ($op_trait:ident::$op_fn:ident, $op_assign_trait:ident::$op_assign_fn:ident) => {
         _impl_op_mm_internal!($op_trait, $op_fn, Matrix<L,M,N>, Matrix<R,M,N>, Matrix<L,M,N>);
