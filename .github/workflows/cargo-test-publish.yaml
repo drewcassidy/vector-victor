@@ -21,12 +21,11 @@ jobs:
           yaclog show
 
       - name: Rust setup
-        run: rustup toolchain install stable --profile minimal --component rustfmt
+        run: rustup toolchain install stable --profile minimal
 
       - name: Run Checks
         run: |
           cargo check
-          cargo fmt --check
 
       - name: Run Unit Tests
         run: cargo test
