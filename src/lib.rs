@@ -5,6 +5,7 @@
 extern crate core;
 
 use index::MatrixIndex;
+use itertools::Itertools;
 use num_traits::{Bounded, One, Zero};
 use std::cmp::min;
 use std::fmt::Debug;
@@ -651,6 +652,24 @@ impl<T: Copy, const M: usize> From<[T; M]> for Vector<T, M> {
 impl<T: Copy, const M: usize, const N: usize> From<T> for Matrix<T, M, N> {
     fn from(scalar: T) -> Self {
         Self::fill(scalar)
+    }
+}
+
+// Convert to 2D Array
+impl<T: Copy + Debug, const M: usize, const N: usize> Into<[[T; N]; M]> for Matrix<T, M, N> {
+    fn into(self) -> [[T; N]; M] {
+        self.rows()
+            .map(|row| row.into())
+            .collect_vec()
+            .try_into()
+            .unwrap()
+    }
+}
+
+// convert to 1D Array
+impl<T: Copy + Debug, const M: usize> Into<[T; M]> for Vector<T, M> {
+    fn into(self) -> [T; M] {
+        self.elements().cloned().collect_vec().try_into().unwrap()
     }
 }
 
