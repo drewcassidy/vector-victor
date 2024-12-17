@@ -2,7 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use vector_victor::{swizzle, Matrix};
+use vector_victor::legacy::Matrix;
+use vector_victor::legacy::Vector;
+use vector_victor::swizzle;
 
 #[test]
 fn test_swizzle() {

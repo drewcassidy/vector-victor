@@ -12,7 +12,7 @@ use generic_parameterize::parameterize;
 use num_traits::real::Real;
 use num_traits::Zero;
 use std::fmt::Debug;
-use vector_victor::decompose::{LUDecompose, LUDecomposition, Parity};
+use vector_victor::legacy::decompose::{LUDecompose, LUDecomposition, Parity};
 use vector_victor::{Matrix, Vector};
 
 #[parameterize(S = (f32,), M = [1,2,3,4], fmt="{fn}_{M}x{M}")]

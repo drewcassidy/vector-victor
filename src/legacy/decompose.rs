@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use crate::util::checked_inv;
-use crate::{Matrix, Vector};
+use crate::legacy::util::checked_inv;
+use crate::legacy::{Matrix, Vector};
 use num_traits::real::Real;
 use num_traits::Signed;
 use std::iter::{Product, Sum};

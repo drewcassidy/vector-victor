@@ -96,7 +96,7 @@ macro_rules! get {
 #[macro_export]
 macro_rules! sub_literal {
     ($result:expr, $p:expr, {$i:expr}) => {
-        $result.set_row($p, &$crate::Vector::fill($i))
+        $result.set_row($p, &$crate::legacy::Vector::fill($i))
     };
     ($result:expr, $p:expr, $i:expr) => {};
 }
