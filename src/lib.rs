@@ -3,20 +3,21 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 pub mod legacy;
+mod math;
 mod ops;
 
 extern crate core;
 
 use itertools::Itertools;
+pub use legacy::{Matrix, Vector};
 use num_traits::{Bounded, One, Zero};
 use std::cmp::min;
 use std::fmt::Debug;
 use std::iter::{zip, Flatten};
 use std::ops::{Add, Index, IndexMut};
+use std::vec::IntoIter;
 
-pub use legacy::{Matrix, Vector};
-
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Col<T: Copy, const N: usize> {
     pub data: [T; N],
 }
@@ -36,6 +37,33 @@ pub type Mat<T, const W: usize, const H: usize> = Col<Col<T, W>, H>;
 //         }
 //     }
 // }
+
+impl<T: Copy, const N: usize> From<[T; N]> for Col<T, N> {
+    fn from(value: [T; N]) -> Self {
+        Self { data: value }
+    }
+}
+
+impl<T: Copy, const N: usize> IntoIterator for Col<T, N> {
+    type Item = T;
+    type IntoIter = <[T; N] as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.data.into_iter()
+    }
+}
+
+impl<T: Copy, const N: usize> Col<T, N> {
+    pub fn rows(self) -> <Self as IntoIterator>::IntoIter {
+        self.into_iter()
+    }
+
+    pub fn try_from_rows(iter: impl IntoIterator<Item = T>) -> Option<Self> {
+        Some(Self::from(
+            <[T; N]>::try_from(iter.into_iter().collect::<Vec<_>>()).ok()?,
+        ))
+    }
+}
 
 pub trait Splat<T: Copy, const N: usize> {
     type Scalar;
@@ -85,27 +113,5 @@ impl<T: Copy, const W: usize, const H: usize> Splat<Col<T, W>, H> for &T {
         Col::<Col<T, W>, H> {
             data: [self.splat(); H],
         }
-    }
-}
-
-trait SplatFrom<T> {
-    fn splat_from(other: T) -> Self;
-}
-
-impl<T: Copy, const N: usize> SplatFrom<Col<T, N>> for Col<T, N> {
-    fn splat_from(other: Col<T, N>) -> Self {
-        other
-    }
-}
-
-impl<T: Copy, const N: usize> SplatFrom<T> for Col<T, N> {
-    fn splat_from(other: T) -> Self {
-        Col::<T, N> { data: [other; N] }
-    }
-}
-
-impl<T: Copy + Default, const N: usize> Default for Col<T, N> {
-    fn default() -> Self {
-        T::default().splat()
     }
 }
