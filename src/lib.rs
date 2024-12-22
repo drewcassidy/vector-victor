@@ -86,69 +86,58 @@ impl<T: Copy, const N: usize> Col<T, N> {
     }
 }
 
+pub trait Scalar {}
+
+impl<T> Scalar for T where T: PartialOrd {}
+
 pub trait Splat<T: Copy> {
     fn splat(self) -> T;
 }
 
-// impl<T: Copy + PartialOrd> Splat<T> for T {
-//     fn splat(self) -> T {
-//         self
-//     }
-// }
-
-// vector to vector identity splat
-impl<T: Copy, const N: usize> Splat<Col<T, N>> for Col<T, N> {
-    fn splat(self) -> Col<T, N> {
+/// Identity splat
+impl<T: Copy> Splat<T> for T {
+    fn splat(self) -> T {
         self
     }
 }
 
-// vector to vector identity splat
-impl<T: Copy, const N: usize> Splat<Col<T, N>> for &Col<T, N> {
-    fn splat(self) -> Col<T, N> {
+/// Identity splat (Reference)
+impl<T: Copy> Splat<T> for &T {
+    fn splat(self) -> T {
         *self
     }
 }
 
-// scalar to vector splat
-impl<T: Copy, const N: usize> Splat<Col<T, N>> for T
-where
-    T: PartialOrd,
-{
+/// Scalar to Vector Splat
+impl<T: Scalar + Copy, const N: usize> Splat<Col<T, N>> for T {
     fn splat(self) -> Col<T, N> {
         Col::<T, N> { data: [self; N] }
     }
 }
 
-// scalar to vector splat
-impl<T: Copy, const N: usize> Splat<Col<T, N>> for &T
-where
-    T: PartialOrd,
-{
+/// Scalar to Vector splat (Reference)
+impl<T: Scalar + Copy, const N: usize> Splat<Col<T, N>> for &T {
     fn splat(self) -> Col<T, N> {
         Col::<T, N> { data: [(*self); N] }
     }
 }
 
-// vector to matrix splat
-impl<T: Copy + PartialOrd, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for Col<T, M> {
+/// Vector to Matrix splat
+impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for Col<T, M> {
     fn splat(self) -> Col<Col<T, N>, M> {
         self.map(Splat::splat)
     }
 }
 
-// vector to matrix splat
-impl<T: Copy + PartialOrd, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for &Col<T, M> {
+/// Vector to Matrix splat (Reference)
+impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for &Col<T, M> {
     fn splat(self) -> Col<Col<T, N>, M> {
         self.map(Splat::splat)
     }
 }
 
-// scalar to matrix splat
-impl<T: Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for T
-where
-    T: PartialOrd,
-{
+/// Scalar to Matrix splat
+impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for T {
     fn splat(self) -> Col<Col<T, N>, M> {
         Col::<Col<T, N>, M> {
             data: [self.splat(); M],
@@ -156,11 +145,8 @@ where
     }
 }
 
-// scalar to matrix splat
-impl<T: Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for &T
-where
-    T: PartialOrd,
-{
+/// Scalar to Matrix splat (Reference)
+impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for &T {
     fn splat(self) -> Col<Col<T, N>, M> {
         Col::<Col<T, N>, M> {
             data: [(*self).splat(); M],

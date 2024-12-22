@@ -3,6 +3,9 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{Col, Splat};
+use num_traits::Num;
+use num_traits::One;
+use std::ops::Mul;
 
 // borrowed from the auto_ops crate
 #[doc(hidden)]
@@ -85,7 +88,8 @@ macro_rules! _impl_op_binary {
         impl<L, R, const N: usize> ::std::ops::$op_trait<R> for Col<L, N>
         where
             L: ::std::ops::$op_trait<L, Output = L> + Copy,
-            R: Splat<L, N> + Copy,
+            Col<L, N>: One,
+            R: Splat<Col<L, N>> + Copy,
         {
             type Output = Col<L, N>;
 
@@ -103,7 +107,7 @@ macro_rules! _impl_op_binary {
         impl<L, R, const N: usize> ::std::ops::$op_trait<R> for &Col<L, N>
         where
             L: ::std::ops::$op_trait<L, Output = L> + Copy,
-            R: Splat<L, N> + Copy,
+            R: Splat<Col<L, N>> + Copy,
         {
             type Output = Col<L, N>;
 
@@ -116,7 +120,7 @@ macro_rules! _impl_op_binary {
         impl<L, R, const N: usize> ::std::ops::$op_assign_trait<R> for Col<L, N>
         where
             L: ::std::ops::$op_assign_trait<L> + Copy,
-            R: Splat<L, N> + Copy,
+            R: Splat<Col<L, N>> + Copy,
         {
             #[inline(always)]
             fn $op_assign_fn(&mut self, other: R) {
@@ -141,3 +145,25 @@ impl_matrix_op!(|);
 impl_matrix_op!(^);
 impl_matrix_op!(<<);
 impl_matrix_op!(>>);
+
+// impl<L: Copy, const N: usize> Mul<Col<L, N>> for Col<L, N>
+// where
+//     L: Mul<L, Output = L>,
+// {
+//     type Output = Col<L, N>;
+//
+//     fn mul(self, rhs: Col<L, N>) -> Self::Output {
+//         self.zip(rhs, Mul::mul)
+//     }
+// }
+//
+// impl<L: Copy, const N: usize> Mul<L> for Col<L, N>
+// where
+//     L: Mul<L, Output = L>,
+// {
+//     type Output = Col<L, N>;
+//
+//     fn mul(self, rhs: Col<L, N>) -> Self::Output {
+//         self.zip(rhs, Mul::mul)
+//     }
+// }
