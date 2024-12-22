@@ -5,11 +5,11 @@ use std::ops::{Add, Mul};
 
 impl<T: Copy, const N: usize> Sum for Col<T, N>
 where
-    T: Zero + One + Add<T, Output = T>,
+    Col<T, N>: Zero + Add<Col<T, N>, Output = Col<T, N>>,
 {
     fn sum<I: Iterator<Item = Self>>(mut iter: I) -> Self {
-        let acc = iter.next().unwrap_or(Col::from([T::zero(); N]));
-        iter.fold(acc, std::ops::Add::add)
+        let acc = iter.next().unwrap_or(Zero::zero());
+        iter.fold(acc, Add::add)
     }
 }
 

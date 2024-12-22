@@ -24,34 +24,34 @@ pub struct Col<T: Copy, const N: usize> {
 
 pub type Mat<T, const W: usize, const H: usize> = Col<Col<T, W>, H>;
 
-// impl<T: Copy, const N: usize> From<T> for Col<T, N> {
-//     fn from(value: T) -> Self {
-//         Col { data: [value; N] }
-//     }
-// }
-//
-// impl<T: Copy, const W: usize, const H: usize> From<T> for Mat<T, W, H> {
-//     fn from(value: T) -> Self {
-//         Col {
-//             data: [value.into(); H],
-//         }
-//     }
-// }
-
 impl<T: Copy, const N: usize> From<[T; N]> for Col<T, N> {
     fn from(value: [T; N]) -> Self {
         Self { data: value }
     }
 }
 
-impl<T: Copy + One + Mul<T, Output = T>, const N: usize> One for Col<T, N>
-where
-    Col<T, N>: Splat<Col<T, N>>,
-{
+impl<T: Copy + Default, const N: usize> Default for Col<T, N> {
+    fn default() -> Self {
+        Self::from([T::default(); N])
+    }
+}
+
+impl<T: Copy + One + Add<T, Output = T>, const N: usize> One for Col<T, N> {
     fn one() -> Self {
-        Self {
-            data: [T::one(); N],
-        }
+        Self::from([T::one(); N])
+    }
+}
+
+impl<T: Copy + Zero, const N: usize> Zero for Col<T, N>
+where
+    Col<T, N>: Add<Col<T, N>, Output = Col<T, N>>,
+{
+    fn zero() -> Self {
+        Self::from([T::zero(); N])
+    }
+
+    fn is_zero(&self) -> bool {
+        self.rows().all(|r| r.is_zero())
     }
 }
 
@@ -154,67 +154,14 @@ impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> 
     }
 }
 
-//
-// impl<T: Copy, const N: usize> Splat<Col<T, N> for Col<T, N> {
-//     type Scalar = T;
-//     fn splat(self) -> Col<T, N> {
-//         self
-//     }
-// }
-//
-// impl<T: Copy, const N: usize> Splat<T, N> for &Col<T, N> {
-//     type Scalar = T;
-//     fn splat(self) -> Col<T, N> {
-//         *self
-//     }
-// }
-//
-// impl<T: Copy, S: Copy const N : usize> Splat<T,N> for S where T : Splat<S>
-//
-// impl<T: Copy, const N: usize> Splat<T, N> for T
-// where
-//     Col<T, N>: One + Mul<T, Output = Col<T, N>>,
-// {
-//     type Scalar = T;
-//     fn splat(self) -> Col<T, N> {
-//         Col::<T, N>::one() * self
-//     }
-// }
-//
-// impl<T: Copy, const N: usize> Splat<T, N> for &T {
-//     type Scalar = T;
-//     fn splat(self) -> Col<T, N> {
-//         Col::<T, N> { data: [*self; N] }
-//     }
-// }
-
-// impl<T: Copy, const W: usize, const H: usize> Splat<Col<T, W>, H> for T {
-//     type Scalar = T;
-//     fn splat(self) -> Col<Col<T, W>, H> {
-//         Col::<Col<T, W>, H> {
-//             data: [self.splat(); H],
-//         }
-//     }
-// }
-//
-// impl<T: Copy, const W: usize, const H: usize> Splat<Col<T, W>, H> for &T {
-//     type Scalar = T;
-//     fn splat(self) -> Col<Col<T, W>, H> {
-//         Col::<Col<T, W>, H> {
-//             data: [self.splat(); H],
-//         }
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use itertools::assert_equal;
 
     #[test]
     fn test_splat_scalar_to_col() {
         let a: Col<i32, 4> = 5.splat();
-        assert_equal(a, Col::from([5, 5, 5, 5]))
+        assert_eq!(a, Col::from([5, 5, 5, 5]))
     }
 
     #[test]
@@ -222,7 +169,7 @@ mod tests {
         let a = Col::from([1, 2, 3]);
         let b: Col<Col<_, 4>, 3> = a.splat();
         for n in 0..3 {
-            assert_equal(b.data[n], Col::from([a.data[n]; 4]))
+            assert_eq!(b.data[n], Col::from([a.data[n]; 4]))
         }
     }
 
@@ -230,7 +177,7 @@ mod tests {
     fn test_splat_scalar_to_matrix() {
         let a: Col<Col<_, 4>, 3> = 5.splat();
         for n in 0..3 {
-            assert_equal(a.data[n], Col::from([5; 4]));
+            assert_eq!(a.data[n], Col::from([5; 4]));
         }
     }
 }
