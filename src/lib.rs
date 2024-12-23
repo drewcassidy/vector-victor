@@ -8,21 +8,18 @@ mod ops;
 
 extern crate core;
 
-use itertools::Itertools;
 pub use legacy::{Matrix, Vector};
-use num_traits::{Bounded, One, Zero};
-use std::cmp::min;
+use num_traits::{Num, One, Zero};
 use std::fmt::Debug;
-use std::iter::{zip, Flatten};
-use std::ops::{Add, Index, IndexMut, Mul};
-use std::vec::IntoIter;
+use std::iter::zip;
+use std::ops::{Add, Mul};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Col<T: Copy, const N: usize> {
     pub data: [T; N],
 }
 
-pub type Mat<T, const W: usize, const H: usize> = Col<Col<T, W>, H>;
+pub type Mat<T, const H: usize, const W: usize> = Col<Col<T, W>, H>;
 
 impl<T: Copy, const N: usize> From<[T; N]> for Col<T, N> {
     fn from(value: [T; N]) -> Self {
@@ -36,7 +33,10 @@ impl<T: Copy + Default, const N: usize> Default for Col<T, N> {
     }
 }
 
-impl<T: Copy + One + Add<T, Output = T>, const N: usize> One for Col<T, N> {
+impl<T: Copy + One + Add<T, Output = T>, const N: usize> One for Col<T, N>
+where
+    Col<T, N>: Mul<Col<T, N>, Output = Col<T, N>>,
+{
     fn one() -> Self {
         Self::from([T::one(); N])
     }
@@ -88,7 +88,7 @@ impl<T: Copy, const N: usize> Col<T, N> {
 
 pub trait Scalar {}
 
-impl<T> Scalar for T where T: PartialOrd {}
+impl<T> Scalar for T where T: Num {}
 
 pub trait Splat<T: Copy> {
     fn splat(self) -> T;
@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn test_splat_col_to_matrix() {
         let a = Col::from([1, 2, 3]);
-        let b: Col<Col<_, 4>, 3> = a.splat();
+        let b: Mat<_, 3, 4> = a.splat();
         for n in 0..3 {
             assert_eq!(b.data[n], Col::from([a.data[n]; 4]))
         }
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_splat_scalar_to_matrix() {
-        let a: Col<Col<_, 4>, 3> = 5.splat();
+        let a: Mat<_, 3, 4> = 5.splat();
         for n in 0..3 {
             assert_eq!(a.data[n], Col::from([5; 4]));
         }

@@ -4,7 +4,6 @@
 
 use crate::{Col, Splat};
 use num_traits::Num;
-use num_traits::One;
 use std::ops::Mul;
 
 // borrowed from the auto_ops crate
@@ -88,7 +87,6 @@ macro_rules! _impl_op_binary {
         impl<L, R, const N: usize> ::std::ops::$op_trait<R> for Col<L, N>
         where
             L: ::std::ops::$op_trait<L, Output = L> + Copy,
-            Col<L, N>: One,
             R: Splat<Col<L, N>> + Copy,
         {
             type Output = Col<L, N>;

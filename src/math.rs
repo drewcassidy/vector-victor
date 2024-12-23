@@ -1,5 +1,5 @@
 use crate::Col;
-use num_traits::{One, Zero};
+use num_traits::Zero;
 use std::iter::{zip, Sum};
 use std::ops::{Add, Mul};
 
