@@ -24,18 +24,20 @@ impl<T: Copy> Splat<T> for &T {
 }
 
 /// Scalar to Vector Splat
-impl<T: Scalar + Copy, const N: usize> Splat<Col<T, N>> for T {
+impl<T: Copy, R: Scalar + Splat<T>, const N: usize> Splat<Col<T, N>> for R {
     fn splat(self) -> Col<T, N> {
-        Col::<T, N> { data: [self; N] }
+        Col::<T, N> {
+            data: [self.splat(); N],
+        }
     }
 }
 
-/// Scalar to Vector splat (Reference)
-impl<T: Scalar + Copy, const N: usize> Splat<Col<T, N>> for &T {
-    fn splat(self) -> Col<T, N> {
-        Col::<T, N> { data: [(*self); N] }
-    }
-}
+// /// Scalar to Vector splat (Reference)
+// impl<T: Scalar + Copy, const N: usize> Splat<Col<T, N>> for &T {
+//     fn splat(self) -> Col<T, N> {
+//         Col::<T, N> { data: [(*self); N] }
+//     }
+// }
 
 /// Vector to Matrix splat
 impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for Col<T, M> {
@@ -50,24 +52,24 @@ impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> 
         self.map(Splat::splat)
     }
 }
-
-/// Scalar to Matrix splat
-impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for T {
-    fn splat(self) -> Col<Col<T, N>, M> {
-        Col::<Col<T, N>, M> {
-            data: [self.splat(); M],
-        }
-    }
-}
-
-/// Scalar to Matrix splat (Reference)
-impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for &T {
-    fn splat(self) -> Col<Col<T, N>, M> {
-        Col::<Col<T, N>, M> {
-            data: [(*self).splat(); M],
-        }
-    }
-}
+//
+// /// Scalar to Matrix splat
+// impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for T {
+//     fn splat(self) -> Col<Col<T, N>, M> {
+//         Col::<Col<T, N>, M> {
+//             data: [self.splat(); M],
+//         }
+//     }
+// }
+//
+// /// Scalar to Matrix splat (Reference)
+// impl<T: Scalar + Copy, const N: usize, const M: usize> Splat<Col<Col<T, N>, M>> for &T {
+//     fn splat(self) -> Col<Col<T, N>, M> {
+//         Col::<Col<T, N>, M> {
+//             data: [(*self).splat(); M],
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
