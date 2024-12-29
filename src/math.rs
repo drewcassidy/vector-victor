@@ -1,6 +1,6 @@
 use crate::Col;
 use num_traits::Zero;
-use std::iter::{zip, Sum};
+use std::iter::Sum;
 use std::ops::{Add, Mul};
 
 impl<T: Copy, const N: usize> Sum for Col<T, N>
@@ -50,8 +50,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::Dot;
     use super::*;
+    use crate::Mat;
 
     #[test]
     fn test_dot() {
@@ -63,16 +63,15 @@ mod tests {
 
     #[test]
     fn test_ident() {
-        let a = Col::from([Col::from([1, 0]), Col::from([0, 1])]);
-        let b = Col::from([Col::from([3, 4]), Col::from([5, 6])]);
-        let c = a.mmul(b);
+        let a = Mat::from([[1, 0], [0, 1]]);
+        let b = Mat::from([[3, 4], [5, 6]]);
         assert_eq!(a.mmul(b), b)
     }
 
     #[test]
     fn test_mul() {
-        let a = Col::from([1, 0]);
-        let b = Col::from([Col::from([3, 4]), Col::from([5, 6])]);
-        assert_eq!(b * a, Col::from([Col::from([3, 4]), Col::from([0, 0])]))
+        let a = Mat::from([[3, 4], [5, 6]]);
+        let b = Col::from([1, 2]);
+        assert_eq!(a * b, Mat::from([[3, 4], [10, 12]]))
     }
 }
