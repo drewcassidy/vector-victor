@@ -2,10 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+mod decompose;
 mod index;
 pub mod legacy;
-mod math;
-mod ops;
+pub mod math;
+pub mod ops;
 pub mod splat;
 
 extern crate core;
@@ -13,9 +14,10 @@ extern crate core;
 use num_traits::{One, Zero};
 use std::fmt::Debug;
 use std::iter::zip;
-use std::ops::{Add, Deref, DerefMut, Index, IndexMut, Mul};
+use std::ops::{Add, Deref, DerefMut, Mul};
 
 pub use legacy::{Matrix, Vector};
+pub use math::{Dot, MMul};
 pub use splat::{Scalar, Splat};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -24,69 +26,6 @@ pub struct Col<T: Copy, const N: usize> {
 }
 
 pub type Mat<T, const H: usize, const W: usize> = Col<Col<T, W>, H>;
-
-impl<T: Copy, const N: usize> From<[T; N]> for Col<T, N> {
-    fn from(value: [T; N]) -> Self {
-        Self { data: value }
-    }
-}
-
-impl<T: Copy, const N: usize> Deref for Col<T, N> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
-}
-
-impl<T: Copy, const N: usize> DerefMut for Col<T, N> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
-    }
-}
-
-impl<T: Copy, const H: usize, const W: usize> From<[[T; W]; H]> for Mat<T, H, W> {
-    fn from(value: [[T; W]; H]) -> Self {
-        Self::from(value.map(Col::<T, W>::from))
-    }
-}
-
-impl<T: Copy + Default, const N: usize> Default for Col<T, N> {
-    fn default() -> Self {
-        Self::from([T::default(); N])
-    }
-}
-
-impl<T: Copy + One + Add<T, Output = T>, const N: usize> One for Col<T, N>
-where
-    Col<T, N>: Mul<Col<T, N>, Output = Col<T, N>>,
-{
-    fn one() -> Self {
-        Self::from([T::one(); N])
-    }
-}
-
-impl<T: Copy + Zero, const N: usize> Zero for Col<T, N>
-where
-    Col<T, N>: Add<Col<T, N>, Output = Col<T, N>>,
-{
-    fn zero() -> Self {
-        Self::from([T::zero(); N])
-    }
-
-    fn is_zero(&self) -> bool {
-        self.rows().all(|r| r.is_zero())
-    }
-}
-
-impl<T: Copy, const N: usize> IntoIterator for Col<T, N> {
-    type Item = T;
-    type IntoIter = <[T; N] as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.data.into_iter()
-    }
-}
 
 impl<T: Copy, const N: usize> Col<T, N> {
     /// Returns a vector with the same size as `self`, but with function `F` applied to each row
@@ -294,7 +233,7 @@ impl<T: Copy, const H: usize, const W: usize> Mat<T, H, W> {
 
     /** Create a matrix from an iterator of columns.
 
-    Iterator items beyond the size of the column will be ignored.
+    Iterator items beyond the size of the matrix will be ignored.
     Columns not assigned to will be `T::default()`
 
     # Arguments
@@ -306,12 +245,12 @@ impl<T: Copy, const H: usize, const W: usize> Mat<T, H, W> {
     ```
     # use vector_victor::{Col,Mat};
     let increment =  Mat::<_,4,4>::from_columns(
-            (0..4).map(|n| Col::<i32,4>::from_rows(n..)));
+            (0..4).map(|n| Col::<i32,4>::from_rows((n*2)..)));
 
-    assert_eq!(increment, Mat::from([[0,1,2,3],
-                                     [1,2,3,4],
-                                     [2,3,4,5],
-                                     [3,4,5,6]]));
+    assert_eq!(increment, Mat::from([[0,2,4,6],
+                                     [1,3,5,7],
+                                     [2,4,6,8],
+                                     [3,5,7,9]]));
     ``` */
     pub fn from_columns<R: Splat<Col<T, H>>>(iter: impl IntoIterator<Item = R>) -> Self
     where
@@ -322,5 +261,91 @@ impl<T: Copy, const H: usize, const W: usize> Mat<T, H, W> {
             ret.set_column(n, col)
         }
         ret
+    }
+}
+
+impl<T: Copy, const N: usize> Mat<T, N, N> {
+    /** Create an identity matrix
+
+    # Examples
+    ```
+    # use vector_victor::{Col,Mat,MMul};
+    let identity = Mat::<i32,3,3>::identity();
+
+    let a = Col::from([2,3,4]);
+    assert_eq!(identity.mmul(a), a)
+    ``` */
+    pub fn identity() -> Self
+    where
+        T: One + Zero,
+    {
+        let mut ret = Self::from([[T::zero(); N]; N]);
+        for n in 0..N {
+            ret[n][n] = T::one();
+        }
+        ret
+    }
+}
+
+impl<T: Copy, const N: usize> From<[T; N]> for Col<T, N> {
+    fn from(value: [T; N]) -> Self {
+        Self { data: value }
+    }
+}
+
+impl<T: Copy, const N: usize> Deref for Col<T, N> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<T: Copy, const N: usize> DerefMut for Col<T, N> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
+}
+
+impl<T: Copy, const H: usize, const W: usize> From<[[T; W]; H]> for Mat<T, H, W> {
+    fn from(value: [[T; W]; H]) -> Self {
+        Self::from(value.map(Col::<T, W>::from))
+    }
+}
+
+impl<T: Copy + Default, const N: usize> Default for Col<T, N> {
+    fn default() -> Self {
+        Self::from([T::default(); N])
+    }
+}
+
+impl<T: Copy + One + Add<T, Output = T>, const N: usize> One for Col<T, N>
+where
+    Col<T, N>: Mul<Col<T, N>, Output = Col<T, N>>,
+{
+    fn one() -> Self {
+        Self::from([T::one(); N])
+    }
+}
+
+impl<T: Copy + Zero, const N: usize> Zero for Col<T, N>
+where
+    Col<T, N>: Add<Col<T, N>, Output = Col<T, N>>,
+{
+    fn zero() -> Self {
+        Self::from([T::zero(); N])
+    }
+
+    fn is_zero(&self) -> bool {
+        self.rows().all(|r| r.is_zero())
+    }
+}
+
+impl<T: Copy, const N: usize> IntoIterator for Col<T, N> {
+    type Item = T;
+    type IntoIter = <[T; N] as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.data.into_iter()
     }
 }

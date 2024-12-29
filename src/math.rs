@@ -1,19 +1,9 @@
 use crate::Col;
-use num_traits::Zero;
-use std::iter::Sum;
+use num_traits::{One, Zero};
+use std::iter::{Product, Sum};
 use std::ops::{Add, Mul};
 
-impl<T: Copy, const N: usize> Sum for Col<T, N>
-where
-    Col<T, N>: Zero + Add<Col<T, N>, Output = Col<T, N>>,
-{
-    fn sum<I: Iterator<Item = Self>>(mut iter: I) -> Self {
-        let acc = iter.next().unwrap_or(Zero::zero());
-        iter.fold(acc, Add::add)
-    }
-}
-
-trait Dot<Rhs = Self> {
+pub trait Dot<Rhs = Self> {
     type Output;
 
     fn dot(self, rhs: Rhs) -> Self::Output;
@@ -31,7 +21,7 @@ where
     }
 }
 
-trait MMul<Rhs = Self> {
+pub trait MMul<Rhs = Self> {
     type Output;
 
     fn mmul(self, rhs: Rhs) -> Self::Output;

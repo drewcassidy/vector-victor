@@ -3,8 +3,9 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use crate::{Col, Splat};
-use num_traits::Num;
-use std::ops::Mul;
+use num_traits::{Num, One, Zero};
+use std::iter::{Product, Sum};
+use std::ops::{Add, Mul};
 
 // borrowed from the auto_ops crate
 #[doc(hidden)]
@@ -143,6 +144,16 @@ impl_matrix_op!(|);
 impl_matrix_op!(^);
 impl_matrix_op!(<<);
 impl_matrix_op!(>>);
+
+impl<T: Copy, const N: usize> Sum for Col<T, N>
+where
+    Col<T, N>: Zero + Add<Col<T, N>, Output = Col<T, N>>,
+{
+    fn sum<I: Iterator<Item = Self>>(mut iter: I) -> Self {
+        let acc = Self::zero();
+        iter.fold(acc, Add::add)
+    }
+}
 
 // impl<L: Copy, const N: usize> Mul<Col<L, N>> for Col<L, N>
 // where
