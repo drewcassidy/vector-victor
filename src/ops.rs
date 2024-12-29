@@ -155,6 +155,16 @@ where
     }
 }
 
+impl<T: Copy, const N: usize> Product for Col<T, N>
+where
+    Col<T, N>: One + Add<Col<T, N>, Output = Col<T, N>>,
+{
+    fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
+        let acc = Self::one();
+        iter.fold(acc, Mul::mul)
+    }
+}
+
 // impl<L: Copy, const N: usize> Mul<Col<L, N>> for Col<L, N>
 // where
 //     L: Mul<L, Output = L>,
