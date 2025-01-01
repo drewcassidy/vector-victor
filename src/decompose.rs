@@ -1,9 +1,8 @@
 use crate::legacy::util::checked_inv;
-use crate::{Col, Mat, Matrix, Splat, Vector};
+use crate::{Col, Mat, Scalar, Splat};
 use num_traits::real::Real;
-use num_traits::{Num, Signed};
+use num_traits::Signed;
 use std::iter::{Product, Sum};
-use std::mem::swap;
 use std::ops::{Mul, Neg, Not};
 
 /// The parity of an [LU decomposition](LUDecomposition). In other words, how many times the
@@ -87,48 +86,11 @@ impl<T: Copy + Default + Real, const H: usize> LUDecomposition<T, H> {
     /// This is equivalent to [`LUDecompose::solve`] while allowing the LU decomposition
     /// to be reused
     #[must_use]
-    pub fn solve<R, const W: usize>(&self, b: R) -> Mat<T, H, W>
+    pub fn solve<R: Copy>(&self, b: Col<R, H>) -> Col<R, H>
     where
-        R: Splat<Mat<T, H, W>>,
+        Col<R, H>: LUSolvable<LU = Self>,
     {
-        let b_permuted = b.splat().permute_rows(&self.idx);
-
-        Mat::from_columns(b_permuted.columns().map(|mut x| {
-            // Implementation from Numerical Recipes §2.3
-            // When ii is set to a positive value,
-            // it will become the index of the first non-vanishing element of b
-            let mut ii = 0usize;
-            for i in 0..H {
-                // forward substitution using L
-                let mut sum = x[i];
-                ii.ne(0)
-                    .then(|mask| {
-                        for j in (ii - 1)..i {
-                            mask.set(sum, sum - (self.lu[i][j] * x[j]))
-                        }
-                    })
-                    .elif(sum.abs().gt(T::epsilon()))
-                    .set(ii, i + 1);
-
-                if ii != 0 {
-                    for j in (ii - 1)..i {
-                        sum = sum - (self.lu[i][j] * x[j]);
-                    }
-                } else if sum.abs() > T::epsilon() {
-                    ii = i + 1;
-                }
-                x[i] = sum;
-            }
-            for i in (0..H).rev() {
-                // back substitution using U
-                let mut sum = x[i];
-                for j in (i + 1)..H {
-                    sum = sum - (self.lu[i][j] * x[j]);
-                }
-                x[i] = sum / self.lu[i][i]
-            }
-            x
-        }))
+        b.permute_rows(&self.idx).solve_for(self)
     }
 
     /// Calculate the determinant $|M|$ of the matrix $M$.
@@ -145,7 +107,10 @@ impl<T: Copy + Default + Real, const H: usize> LUDecomposition<T, H> {
     ///
     /// This is equivalent to [`Matrix::inv`] while allowing the LU decomposition to be reused
     #[must_use]
-    pub fn inv(&self) -> Mat<T, H, H> {
+    pub fn inv(&self) -> Mat<T, H, H>
+    where
+        Mat<T, H, H>: LUSolvable<LU = Self>,
+    {
         self.solve(Mat::<T, H, H>::identity())
     }
 
@@ -174,7 +139,7 @@ impl<T: Copy + Default + Real, const H: usize> LUDecomposition<T, H> {
 /// See [LU decomposition](https://en.wikipedia.org/wiki/LU_decomposition)
 /// on wikipedia for more information
 pub trait LUDecompose<T: Copy, const N: usize> {
-    /// return this matrix's [`crate::legacy::decompose::LUDecomposition`], or [`None`] if the matrix is singular.
+    /// return this matrix's [`LUDecomposition`], or [`None`] if the matrix is singular.
     /// This can be used to solve for multiple results
     ///
     /// ```
@@ -184,10 +149,10 @@ pub trait LUDecompose<T: Copy, const N: usize> {
     /// let lu = m.lu().expect("Cannot decompose a signular matrix");
     ///
     /// let b = Col::from([7.0,10.0]);
-    /// assert_eq!(lu.solve(b), Mat::from([[1.0],[2.0]]));
+    /// assert_eq!(lu.solve(b), Col::from([1.0,2.0]));
     ///
     /// let c = Col::from([10.0, 14.0]);
-    /// assert_eq!(lu.solve(c), Mat::from([[1.0],[3.0]]));
+    /// assert_eq!(lu.solve(c), Col::from([1.0,3.0]));
     ///
     /// ```
     #[must_use]
@@ -198,14 +163,14 @@ pub trait LUDecompose<T: Copy, const N: usize> {
     ///
     /// ```
     /// # use vector_victor::decompose::LUDecompose;
-    /// # use vector_victor::Matrix;
-    /// let m = Matrix::mat([[1.0,3.0],[2.0,4.0]]);
+    /// # use vector_victor::{MMul, Mat};
+    /// let m = Mat::from([[1.0,3.0],[2.0,4.0]]);
     /// let mi = m.inv().expect("Cannot invert a singular matrix");
     ///
-    /// assert_eq!(mi, Matrix::mat([[-2.0, 1.5],[1.0, -0.5]]), "unexpected inverse matrix");
+    /// assert_eq!(mi, Mat::from([[-2.0, 1.5],[1.0, -0.5]]), "unexpected inverse matrix");
     ///
     /// // multiplying a matrix by its inverse yields the identity matrix
-    /// assert_eq!(m.mmul(&mi), Matrix::identity())
+    /// assert_eq!(m.mmul(mi), Mat::identity())
     /// ```
     #[must_use]
     fn inv(&self) -> Option<Mat<T, N, N>>;
@@ -219,39 +184,40 @@ pub trait LUDecompose<T: Copy, const N: usize> {
     ///
     /// ```
     /// # use vector_victor::decompose::LUDecompose;
-    /// # use vector_victor::{Matrix, Vector};
+    /// # use vector_victor::{Mat, Col, MMul};
     ///
-    /// let m = Matrix::mat([[1.0,3.0],[2.0,4.0]]);
-    /// let b = Vector::vec([7.0,10.0]);
-    /// let x = m.solve(&b).expect("Cannot solve a singular matrix");
+    /// let m = Mat::from([[1.0,3.0],[2.0,4.0]]);
+    /// let b = Col::from([7.0,10.0]);
+    /// let x = m.solve(b).expect("Cannot solve a singular matrix");
     ///
-    /// assert_eq!(x, Vector::vec([1.0,2.0]), "x = [1,2]");
-    /// assert_eq!(m.mmul(&x), b, "Mx = b");
+    /// assert_eq!(x, Col::from([1.0,2.0]), "x = [1,2]");
+    /// assert_eq!(m.mmul(x), b, "Mx = b");
     /// ```
     ///
     /// $x$ does not need to be a column-vector, it can also be a 2D matrix. For example,
-    /// the following is another way to calculate the [inverse](crate::legacy::decompose::LUDecompose::inv()) by solving for the identity matrix $I$.
+    /// the following is another way to calculate the [inverse](LUDecompose::inv()) by solving for the identity matrix $I$.
     ///
     /// ```
     /// # use vector_victor::decompose::LUDecompose;
-    /// # use vector_victor::{Matrix, Vector};
+    /// # use vector_victor::{Mat, Col, MMul};
     ///
-    /// let m = Matrix::mat([[1.0,3.0],[2.0,4.0]]);
-    /// let i = Matrix::<f64,2,2>::identity();
-    /// let mi = m.solve(&i).expect("Cannot solve a singular matrix");
+    /// let m = Mat::from([[1.0,3.0],[2.0,4.0]]);
+    /// let i = Mat::<f64,2,2>::identity();
+    /// let mi = m.solve(i).expect("Cannot solve a singular matrix");
     ///
-    /// assert_eq!(mi, Matrix::mat([[-2.0, 1.5],[1.0, -0.5]]));
-    /// assert_eq!(m.mmul(&mi), i, "M x M^-1 = I");
+    /// assert_eq!(mi, Mat::from([[-2.0, 1.5],[1.0, -0.5]]));
+    /// assert_eq!(m.mmul(mi), i, "M x M^-1 = I");
     /// ```
     #[must_use]
-    fn solve<B, const M: usize>(&self, b: B) -> Option<Mat<T, N, M>>
+    fn solve<R: Copy>(&self, b: Col<R, N>) -> Option<Col<R, N>>
     where
-        B: Splat<Mat<T, N, M>>;
+        Col<R, N>: LUSolvable<LU = LUDecomposition<T, N>>;
 }
 
 impl<T, const N: usize> LUDecompose<T, N> for Mat<T, N, N>
 where
     T: Copy + Default + Real + Sum + Product + Signed + Splat<T> + Splat<Mat<T, N, N>>,
+    Mat<T, N, N>: LUSolvable<LU = LUDecomposition<T, N>>,
 {
     fn lu(&self) -> Option<LUDecomposition<T, N>> {
         // Implementation from Numerical Recipes §2.3
@@ -310,7 +276,7 @@ where
             }
         }
 
-        return Some(LUDecomposition { lu, idx, parity });
+        Some(LUDecomposition { lu, idx, parity })
     }
 
     fn inv(&self) -> Option<Mat<T, N, N>> {
@@ -351,10 +317,63 @@ where
         }
     }
 
-    fn solve<B, const M: usize>(&self, b: B) -> Option<Mat<T, N, M>>
+    fn solve<R: Copy>(&self, b: Col<R, N>) -> Option<Col<R, N>>
     where
-        B: Splat<Mat<T, N, M>>,
+        Col<R, N>: LUSolvable<LU = LUDecomposition<T, N>>,
     {
         Some(self.lu()?.solve(b))
+    }
+}
+
+pub trait LUSolvable {
+    type LU;
+    fn solve_for(&self, lu: &Self::LU) -> Self;
+}
+
+impl<T, const N: usize> LUSolvable for Col<T, N>
+where
+    T: Copy + Scalar + Default + Real + Sum + Product + Signed,
+{
+    type LU = LUDecomposition<T, N>;
+
+    fn solve_for(&self, decomposition: &Self::LU) -> Self {
+        // Implementation from Numerical Recipes §2.3
+        // When ii is set to a positive value,
+        // it will become the index of the first non-vanishing element of b
+        let mut b = self.clone();
+
+        let mut ii = 0usize;
+        for i in 0..N {
+            // forward substitution using L
+            let mut sum = b[i];
+            if ii != 0 {
+                for j in (ii - 1)..i {
+                    sum = sum - (decomposition.lu[i][j] * b[j]);
+                }
+            } else if sum.abs() > T::epsilon() {
+                ii = i + 1;
+            }
+            b[i] = sum;
+        }
+        for i in (0..N).rev() {
+            // back substitution using U
+            let mut sum = b[i];
+            for j in (i + 1)..N {
+                sum = sum - (decomposition.lu[i][j] * b[j]);
+            }
+            b[i] = sum / decomposition.lu[i][i]
+        }
+        b
+    }
+}
+
+impl<T, const H: usize, const W: usize> LUSolvable for Mat<T, H, W>
+where
+    T: Copy + Scalar + Default + Real + Sum + Product + Signed,
+{
+    type LU = LUDecomposition<T, H>;
+
+    fn solve_for(&self, decomposition: &Self::LU) -> Self {
+        Self::from_columns(self.columns().map(|c| c.solve_for(decomposition)))
     }
 }
