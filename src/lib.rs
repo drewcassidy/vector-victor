@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-mod decompose;
 mod abs;
+pub mod decompose;
 mod index;
 pub mod legacy;
 pub mod math;
@@ -13,8 +13,9 @@ pub mod splat;
 extern crate core;
 
 use num_traits::{One, Signed, Zero};
+use std::cmp::min;
 use std::fmt::Debug;
-use std::iter::zip;
+use std::iter::{zip, Product};
 use std::ops::{Add, Deref, DerefMut, Mul};
 
 use crate::abs::Abs;
@@ -32,7 +33,7 @@ pub type Mat<T, const H: usize, const W: usize> = Col<Col<T, W>, H>;
 impl<T: Copy, const N: usize> Col<T, N> {
     /// Returns a vector with the same size as `self`, but with function `F` applied to each row
     #[must_use]
-    pub fn map<F, U>(self, f: F) -> Col<U, N>
+    pub fn map<F, U>(&self, f: F) -> Col<U, N>
     where
         F: FnMut(T) -> U,
         U: Copy,
@@ -44,13 +45,21 @@ impl<T: Copy, const N: usize> Col<T, N> {
 
     /// Returns a vector with the same size as `self`, but with function `F` applied to the corresponding elements of `self` and `rhs`
     #[must_use]
-    pub fn zip<F, U, R>(self, rhs: Col<R, N>, mut f: F) -> Col<U, N>
+    pub fn zip<F, U, R>(&self, rhs: &Col<R, N>, mut f: F) -> Col<U, N>
     where
         F: FnMut(T, R) -> U,
         U: Copy + Splat<U>,
         R: Copy,
     {
         Col::<U, N>::try_from_rows(zip(self.rows(), rhs.rows()).map(|(l, r)| f(l, r))).unwrap()
+    }
+
+    /// Returns the absolute value of a vector
+    pub fn abs(&self) -> Self
+    where
+        T: Signed,
+    {
+        self.map(|row| row.abs())
     }
 
     /** Returns one row of the column.
@@ -178,6 +187,48 @@ impl<T: Copy, const N: usize> Col<T, N> {
         }
         ret
     }
+
+    /** Apply a permutation to the rows of a column
+
+    # Arguments
+
+    * `ms`: a [`Col<usize,P>`](Col). Each entry is the index of the row that will
+    appear in the result
+
+    Returns: `Col<T,P>`
+
+    # Panics
+
+    Panics if any of the row indices in `ms` is out of bounds
+
+    # Examples
+
+    ```
+    # use vector_victor::{Mat, Col};
+    let my_matrix = Mat::from([[1, 2, 3],
+                               [4, 5, 6],
+                               [7, 8, 9]]);
+
+    let permuted = my_matrix.permute_rows(&Col::from([1, 0, 2]));
+    assert_eq!(permuted, Mat::from([[4, 5, 6],
+                                    [1, 2, 3],
+                                    [7, 8, 9]]))
+    ``` */
+    #[must_use]
+    pub fn permute_rows<const P: usize>(&self, ms: &Col<usize, P>) -> Col<T, P> {
+        ms.map(|m| self.row(m))
+    }
+
+    /** Interchange two rows
+
+    # Panics
+
+    Panics if row index `m1` or `m2` are out of bounds */
+    pub fn pivot_rows(&mut self, m1: usize, m2: usize) {
+        let tmp = self[m2];
+        self[m2] = self[m1];
+        self[m1] = tmp
+    }
 }
 
 impl<T: Copy, const H: usize, const W: usize> Mat<T, H, W> {
@@ -264,6 +315,13 @@ impl<T: Copy, const H: usize, const W: usize> Mat<T, H, W> {
         }
         ret
     }
+
+    /// Returns an iterator over the rows of the column
+    #[must_use]
+    pub fn diagonals<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
+        let count = min(W, H);
+        (0..count).map(|i| self[i][i])
+    }
 }
 
 impl<T: Copy, const N: usize> Mat<T, N, N> {
@@ -315,6 +373,12 @@ impl<T: Copy, const H: usize, const W: usize> From<[[T; W]; H]> for Mat<T, H, W>
     }
 }
 
+impl<T: Copy, const N: usize> From<Col<T, N>> for Mat<T, N, 1> {
+    fn from(value: Col<T, N>) -> Self {
+        value.map(|row| From::from([row]))
+    }
+}
+
 impl<T: Copy + Default, const N: usize> Default for Col<T, N> {
     fn default() -> Self {
         Self::from([T::default(); N])
@@ -355,5 +419,11 @@ impl<T: Copy, const N: usize> IntoIterator for Col<T, N> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.data.into_iter()
+    }
+}
+
+impl<T: Default + Copy + Splat<T>, const N: usize> FromIterator<T> for Col<T, N> {
+    fn from_iter<I: IntoIterator<Item: Splat<T>>>(iter: I) -> Self {
+        Self::from_rows(iter)
     }
 }
