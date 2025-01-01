@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 mod decompose;
+mod abs;
 mod index;
 pub mod legacy;
 pub mod math;
@@ -11,11 +12,12 @@ pub mod splat;
 
 extern crate core;
 
-use num_traits::{One, Zero};
+use num_traits::{One, Signed, Zero};
 use std::fmt::Debug;
 use std::iter::zip;
 use std::ops::{Add, Deref, DerefMut, Mul};
 
+use crate::abs::Abs;
 pub use legacy::{Matrix, Vector};
 pub use math::{Dot, MMul};
 pub use splat::{Scalar, Splat};
@@ -338,6 +340,12 @@ where
 
     fn is_zero(&self) -> bool {
         self.rows().all(|r| r.is_zero())
+    }
+}
+
+impl<T: Copy + Abs, const N: usize> Abs for Col<T, N> {
+    fn abs(&self) -> Self {
+        self.map(|row| row.abs())
     }
 }
 
