@@ -6,6 +6,7 @@ mod abs;
 pub mod decompose;
 mod index;
 pub mod legacy;
+pub mod mask;
 pub mod math;
 pub mod ops;
 pub mod splat;
