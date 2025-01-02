@@ -5,7 +5,6 @@
 mod abs;
 pub mod decompose;
 mod index;
-pub mod legacy;
 pub mod mask;
 pub mod math;
 pub mod ops;
@@ -20,7 +19,6 @@ use std::iter::{zip, Product};
 use std::ops::{Add, Deref, DerefMut, Mul};
 
 use crate::abs::Abs;
-pub use legacy::{Matrix, Vector};
 pub use math::{Dot, MMul};
 pub use splat::{Scalar, Splat};
 
@@ -345,6 +343,49 @@ impl<T: Copy, const N: usize> Mat<T, N, N> {
             ret[n][n] = T::one();
         }
         ret
+    }
+}
+
+pub trait AsMatrix<T: Copy> {
+    type OUTPUT;
+
+    fn as_matrix(&self) -> Self::OUTPUT;
+    fn from_matrix(m: Self::OUTPUT) -> Self;
+}
+
+impl<T: Copy, const H: usize, const W: usize> AsMatrix<T> for Mat<T, H, W> {
+    type OUTPUT = Mat<T, H, W>;
+
+    fn as_matrix(&self) -> Self::OUTPUT {
+        *self
+    }
+
+    fn from_matrix(m: Self::OUTPUT) -> Self {
+        m
+    }
+}
+
+impl<T: Copy, const H: usize> AsMatrix<T> for Col<T, H> {
+    type OUTPUT = Mat<T, H, 1>;
+
+    fn as_matrix(&self) -> Self::OUTPUT {
+        self.map(|r| Col::from([r]))
+    }
+
+    fn from_matrix(m: Self::OUTPUT) -> Self {
+        m.map(|r| r[0])
+    }
+}
+
+impl<T: Copy> AsMatrix<T> for T {
+    type OUTPUT = Mat<T, 1, 1>;
+
+    fn as_matrix(&self) -> Self::OUTPUT {
+        Mat::from([[*self]])
+    }
+
+    fn from_matrix(m: Self::OUTPUT) -> Self {
+        m[0][0]
     }
 }
 

@@ -1,9 +1,19 @@
-use crate::legacy::util::checked_inv;
-use crate::{Col, Mat, Scalar, Splat};
+use crate::{AsMatrix, Col, Mat, Scalar, Splat};
 use num_traits::real::Real;
-use num_traits::Signed;
+use num_traits::{Num, One, Signed, Zero};
 use std::iter::{Product, Sum};
-use std::ops::{Mul, Neg, Not};
+use std::ops::{Div, Mul, Neg, Not};
+
+pub fn checked_div<L: Num + Div<R, Output = T>, R: Num + Zero, T>(num: L, den: R) -> Option<T> {
+    if den.is_zero() {
+        return None;
+    }
+    Some(num / den)
+}
+
+pub fn checked_inv<T: Num + Div<T, Output = T> + Zero + One>(den: T) -> Option<T> {
+    checked_div(T::one(), den)
+}
 
 /// The parity of an [LU decomposition](LUDecomposition). In other words, how many times the
 /// source matrix has to have rows swapped before the decomposition takes place
@@ -86,11 +96,41 @@ impl<T: Copy + Default + Real, const H: usize> LUDecomposition<T, H> {
     /// This is equivalent to [`LUDecompose::solve`] while allowing the LU decomposition
     /// to be reused
     #[must_use]
-    pub fn solve<R: Copy>(&self, b: Col<R, H>) -> Col<R, H>
+    pub fn solve<R: Copy, const W: usize>(&self, b: Col<R, H>) -> Col<R, H>
     where
-        Col<R, H>: LUSolvable<LU = Self>,
+        Col<R, H>: AsMatrix<T, OUTPUT = Mat<T, H, W>>,
     {
-        b.permute_rows(&self.idx).solve_for(self)
+        let permuted = b.as_matrix().permute_rows(&self.idx);
+
+        let sln = Mat::from_columns(permuted.columns().map(|mut x| {
+            // Implementation from Numerical Recipes §2.3
+            // When ii is set to a positive value,
+            // it will become the index of the first non-vanishing element of b
+            let mut ii = 0usize;
+            for i in 0..H {
+                // forward substitution using L
+                let mut sum = x[i];
+                if ii != 0 {
+                    for j in (ii - 1)..i {
+                        sum = sum - (self.lu[i][j] * x[j]);
+                    }
+                } else if sum.abs() > T::epsilon() {
+                    ii = i + 1;
+                }
+                x[i] = sum;
+            }
+            for i in (0..H).rev() {
+                // back substitution using U
+                let mut sum = x[i];
+                for j in (i + 1)..H {
+                    sum = sum - (self.lu[i][j] * x[j]);
+                }
+                x[i] = sum / self.lu[i][i]
+            }
+            x
+        }));
+
+        Col::<R, H>::from_matrix(sln)
     }
 
     /// Calculate the determinant $|M|$ of the matrix $M$.
@@ -107,10 +147,7 @@ impl<T: Copy + Default + Real, const H: usize> LUDecomposition<T, H> {
     ///
     /// This is equivalent to [`Matrix::inv`] while allowing the LU decomposition to be reused
     #[must_use]
-    pub fn inv(&self) -> Mat<T, H, H>
-    where
-        Mat<T, H, H>: LUSolvable<LU = Self>,
-    {
+    pub fn inv(&self) -> Mat<T, H, H> {
         self.solve(Mat::<T, H, H>::identity())
     }
 
@@ -209,19 +246,18 @@ pub trait LUDecompose<T: Copy, const N: usize> {
     /// assert_eq!(m.mmul(mi), i, "M x M^-1 = I");
     /// ```
     #[must_use]
-    fn solve<R: Copy>(&self, b: Col<R, N>) -> Option<Col<R, N>>
+    fn solve<R: Copy, const W: usize>(&self, b: Col<R, N>) -> Option<Col<R, N>>
     where
-        Col<R, N>: LUSolvable<LU = LUDecomposition<T, N>>;
+        Col<R, N>: AsMatrix<T, OUTPUT = Mat<T, N, W>>;
 }
 
 impl<T, const N: usize> LUDecompose<T, N> for Mat<T, N, N>
 where
     T: Copy + Default + Real + Sum + Product + Signed + Splat<T> + Splat<Mat<T, N, N>>,
-    Mat<T, N, N>: LUSolvable<LU = LUDecomposition<T, N>>,
 {
     fn lu(&self) -> Option<LUDecomposition<T, N>> {
         // Implementation from Numerical Recipes §2.3
-        let mut lu = self.clone();
+        let mut lu = *self;
         let mut idx: Col<usize, N> = Col::<usize, N>::from_rows(0..N);
         let mut parity = Parity::Even;
 
@@ -317,63 +353,10 @@ where
         }
     }
 
-    fn solve<R: Copy>(&self, b: Col<R, N>) -> Option<Col<R, N>>
+    fn solve<R: Copy, const W: usize>(&self, b: Col<R, N>) -> Option<Col<R, N>>
     where
-        Col<R, N>: LUSolvable<LU = LUDecomposition<T, N>>,
+        Col<R, N>: AsMatrix<T, OUTPUT = Mat<T, N, W>>,
     {
         Some(self.lu()?.solve(b))
-    }
-}
-
-pub trait LUSolvable {
-    type LU;
-    fn solve_for(&self, lu: &Self::LU) -> Self;
-}
-
-impl<T, const N: usize> LUSolvable for Col<T, N>
-where
-    T: Copy + Scalar + Default + Real + Sum + Product + Signed,
-{
-    type LU = LUDecomposition<T, N>;
-
-    fn solve_for(&self, decomposition: &Self::LU) -> Self {
-        // Implementation from Numerical Recipes §2.3
-        // When ii is set to a positive value,
-        // it will become the index of the first non-vanishing element of b
-        let mut b = self.clone();
-
-        let mut ii = 0usize;
-        for i in 0..N {
-            // forward substitution using L
-            let mut sum = b[i];
-            if ii != 0 {
-                for j in (ii - 1)..i {
-                    sum = sum - (decomposition.lu[i][j] * b[j]);
-                }
-            } else if sum.abs() > T::epsilon() {
-                ii = i + 1;
-            }
-            b[i] = sum;
-        }
-        for i in (0..N).rev() {
-            // back substitution using U
-            let mut sum = b[i];
-            for j in (i + 1)..N {
-                sum = sum - (decomposition.lu[i][j] * b[j]);
-            }
-            b[i] = sum / decomposition.lu[i][i]
-        }
-        b
-    }
-}
-
-impl<T, const H: usize, const W: usize> LUSolvable for Mat<T, H, W>
-where
-    T: Copy + Scalar + Default + Real + Sum + Product + Signed,
-{
-    type LU = LUDecomposition<T, H>;
-
-    fn solve_for(&self, decomposition: &Self::LU) -> Self {
-        Self::from_columns(self.columns().map(|c| c.solve_for(decomposition)))
     }
 }
