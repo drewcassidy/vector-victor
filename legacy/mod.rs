@@ -11,7 +11,7 @@ use num_traits::{Bounded, One, Zero};
 use std::cmp::min;
 use std::fmt::Debug;
 use std::iter::{zip, Flatten};
-use std::ops::{Add, Index, IndexMut};
+use std::ops::{Index, IndexMut};
 
 pub mod decompose;
 pub mod index;
