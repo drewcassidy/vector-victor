@@ -1,17 +1,17 @@
-use crate::{AsMatrix, Col, Mat, Scalar, Splat};
+use crate::{AsMatrix, Col, Mat, Splat};
 use num_traits::real::Real;
 use num_traits::{Num, One, Signed, Zero};
 use std::iter::{Product, Sum};
 use std::ops::{Div, Mul, Neg, Not};
 
-pub fn checked_div<L: Num + Div<R, Output = T>, R: Num + Zero, T>(num: L, den: R) -> Option<T> {
+fn checked_div<L: Num + Div<R, Output = T>, R: Num + Zero, T>(num: L, den: R) -> Option<T> {
     if den.is_zero() {
         return None;
     }
     Some(num / den)
 }
 
-pub fn checked_inv<T: Num + Div<T, Output = T> + Zero + One>(den: T) -> Option<T> {
+fn checked_inv<T: Num + Div<T, Output = T> + Zero + One>(den: T) -> Option<T> {
     checked_div(T::one(), den)
 }
 

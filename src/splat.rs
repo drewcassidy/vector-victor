@@ -1,5 +1,4 @@
 use crate::{Col, Mat};
-use num_traits::Num;
 use std::num::{NonZero, Saturating, Wrapping};
 
 pub trait Scalar {}

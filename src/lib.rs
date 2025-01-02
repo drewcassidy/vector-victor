@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+extern crate core;
 mod abs;
 pub mod decompose;
 mod index;
@@ -10,12 +11,10 @@ pub mod math;
 pub mod ops;
 pub mod splat;
 
-extern crate core;
-
 use num_traits::{One, Signed, Zero};
 use std::cmp::min;
 use std::fmt::Debug;
-use std::iter::{zip, Product};
+use std::iter::zip;
 use std::ops::{Add, Deref, DerefMut, Mul};
 
 use crate::abs::Abs;
@@ -192,7 +191,7 @@ impl<T: Copy, const N: usize> Col<T, N> {
     # Arguments
 
     * `ms`: a [`Col<usize,P>`](Col). Each entry is the index of the row that will
-    appear in the result
+      appear in the result
 
     Returns: `Col<T,P>`
 
@@ -279,7 +278,7 @@ impl<T: Copy, const H: usize, const W: usize> Mat<T, H, W> {
     }
 
     /// Returns an iterator over the columns of a matrix
-    pub fn columns<'a>(&'a self) -> impl Iterator<Item = Col<T, H>> + 'a {
+    pub fn columns(&self) -> impl Iterator<Item = Col<T, H>> + '_ {
         (0..H).map(|n| self.column(n))
     }
 
@@ -316,8 +315,7 @@ impl<T: Copy, const H: usize, const W: usize> Mat<T, H, W> {
     }
 
     /// Returns an iterator over the rows of the column
-    #[must_use]
-    pub fn diagonals<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
+    pub fn diagonals(&self) -> impl Iterator<Item = T> + '_ {
         let count = min(W, H);
         (0..count).map(|i| self[i][i])
     }
